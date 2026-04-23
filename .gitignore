@@ -1,0 +1,13 @@
+.DS_Store
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.gif
+untitled folder/
+Business Card Files/
+Omealo/
+Residial/
+*.webloc
+node_modules/
+.netlify/
