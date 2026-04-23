@@ -1,0 +1,1806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Residial — Property Manager</title>
+<meta name="description" content="Emergency alert platform for property managers">
+<meta name="theme-color" content="#1a6fff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Residial">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='%231a6fff'/><text y='140' x='96' text-anchor='middle' font-size='130' font-family='serif' fill='white'>R</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a1628;--surface:#111f35;--surface2:#162540;--surface3:#1c2f4a;
+  --blue:#1a6fff;--blue-dim:rgba(26,111,255,.12);--blue-border:rgba(26,111,255,.3);
+  --sky:#4d92ff;--white:#f0f6ff;--gray:#6b85a3;--gray2:#4a6080;
+  --red:#e84040;--red-dim:rgba(232,64,64,.1);--red-border:rgba(232,64,64,.3);
+  --amber:#f5a623;--amber-dim:rgba(245,166,35,.1);--amber-border:rgba(245,166,35,.3);
+  --green:#27c97a;--green-dim:rgba(39,201,122,.1);--green-border:rgba(39,201,122,.3);
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.04);
+  --radius:12px;--radius-sm:8px;
+}
+
+
+/* ── PWA INSTALL BANNER ── */
+.install-banner{display:none;position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--blue-border);border-radius:var(--radius);padding:14px 18px;z-index:1000;box-shadow:0 8px 32px rgba(0,0,0,.4);align-items:center;gap:12px;max-width:360px;width:calc(100% - 40px)}
+.install-banner.show{display:flex}
+.install-banner-icon{font-size:1.8rem;flex-shrink:0}
+.install-banner-text{flex:1}
+.install-banner-title{font-size:.85rem;font-weight:700;color:var(--white);margin-bottom:2px}
+.install-banner-sub{font-size:.72rem;color:var(--gray)}
+.install-banner-btn{background:var(--blue);color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.install-banner-close{background:none;border:none;color:var(--gray);cursor:pointer;font-size:1rem;padding:4px;flex-shrink:0}
+
+/* ── APP SHELL ── */
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--white);font-size:17px}
+body.app-mode{overflow:hidden}
+.topbar{display:flex;align-items:center;padding:0 22px;height:52px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;gap:14px;z-index:10}
+.logo{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--white)}
+.logo span{color:var(--sky)}
+.property-select{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:.78rem;outline:none;cursor:pointer;max-width:160px}
+.property-select option{background:var(--surface)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.status-pill{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:100px;font-size:.7rem;font-weight:600}
+.status-pill.ready{background:var(--green-dim);border:1px solid var(--green-border);color:var(--green)}
+.status-pill.warn{background:var(--amber-dim);border:1px solid var(--amber-border);color:var(--amber)}
+.pulse{width:6px;height:6px;border-radius:50%;animation:pulse 1.6s ease infinite}
+.pulse.g{background:var(--green)}.pulse.a{background:var(--amber)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.user-pill{display:flex;align-items:center;gap:7px;padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:100px;font-size:.75rem;cursor:pointer}
+.user-avatar{width:22px;height:22px;border-radius:50%;background:var(--blue-dim);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:var(--sky)}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:calc(100vh - 52px);overflow:hidden}
+.sidebar{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:14px 0;overflow-y:auto}
+.nav-label{font-size:.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--gray2);font-weight:600;padding:8px 12px 4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:10px 10px;margin:0 8px;border-radius:var(--radius-sm);color:var(--gray);font-size:.9rem;font-weight:500;cursor:pointer;transition:all .15s;border:1px solid transparent}
+.nav-item:hover{background:var(--border2);color:var(--white)}
+.nav-item.active{background:var(--blue-dim);border-color:var(--blue-border);color:var(--sky)}
+.nav-item svg{width:15px;height:15px;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--blue-dim);color:var(--sky);border-radius:100px;padding:1px 6px;font-size:.62rem;font-weight:700}
+.sidebar-plan{margin:auto 0 0;padding:12px;border-top:1px solid var(--border)}
+.plan-box{background:var(--blue-dim);border:1px solid var(--blue-border);border-radius:var(--radius-sm);padding:10px;font-size:.75rem}
+.plan-box strong{display:block;color:var(--sky);margin-bottom:2px}
+.plan-box span{color:var(--gray)}
+
+/* ── MAIN ── */
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.page{display:none;flex:1;overflow:hidden;flex-direction:column}
+.page.active{display:flex}
+.page-header{padding:18px 22px 14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;gap:12px}
+.page-title{font-family:'DM Serif Display',serif;font-size:1.6rem}
+.page-sub{font-size:.85rem;color:var(--gray);margin-top:2px}
+.page-header-right{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-sm);font-size:.88rem;font-weight:600;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 4px 12px rgba(26,111,255,.25)}
+.btn-primary:hover{background:var(--sky)}
+.btn-danger-solid{background:var(--red);color:#fff;box-shadow:0 4px 12px rgba(232,64,64,.25)}
+.btn-danger-solid:hover{opacity:.85}
+.btn-ghost{background:transparent;color:var(--gray);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--border2);color:var(--white)}
+.btn-green{background:var(--green);color:#000;font-weight:700;box-shadow:0 4px 16px rgba(39,201,122,.3)}
+.btn-green:hover{opacity:.85}
+
+/* ── SEND ALERT PAGE ── */
+.send-scroll{flex:1;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:16px;max-width:720px}
+.card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.card-label{font-size:.78rem;text-transform:uppercase;letter-spacing:.7px;color:var(--gray);font-weight:600;margin-bottom:12px}
+.type-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.type-chip{padding:16px 8px;border-radius:var(--radius);border:1px solid var(--border);cursor:pointer;text-align:center;transition:all .18s;font-size:.82rem;font-weight:600;color:var(--gray);background:var(--surface3)}
+.type-chip:hover{border-color:rgba(255,255,255,.25);color:var(--white);background:rgba(255,255,255,.05);transform:translateY(-2px)}
+.type-chip.active{border-color:var(--red-border);background:var(--red-dim);color:#ffaaaa;transform:translateY(-2px);box-shadow:0 4px 16px rgba(232,64,64,.2)}
+.type-chip.active.water-type{border-color:var(--blue-border);background:var(--blue-dim);color:var(--sky);box-shadow:0 4px 16px rgba(26,111,255,.2)}
+.type-chip.active.amber-type{border-color:var(--amber-border);background:var(--amber-dim);color:var(--amber);box-shadow:0 4px 16px rgba(245,166,35,.2)}
+.type-chip.active.green-type{border-color:var(--green-border);background:var(--green-dim);color:var(--green);box-shadow:0 4px 16px rgba(39,201,122,.2)}
+.type-chip.rent-chip{border-color:var(--green-border);color:var(--green);grid-column:span 3;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px}
+.type-chip.rent-chip.active{background:var(--green-dim)}
+.chip-icon{font-size:2rem;display:block;margin-bottom:8px;line-height:1}
+.chip-label{font-size:.78rem;line-height:1.3}
+.msg-textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;font-size:.95rem;color:var(--white);font-family:'DM Sans',sans-serif;outline:none;resize:vertical;min-height:90px;transition:border-color .2s;line-height:1.6}
+.msg-textarea:focus{border-color:var(--blue-border)}
+.ai-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.ai-tag{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;color:var(--sky);background:var(--blue-dim);border:1px solid var(--blue-border);border-radius:4px;padding:2px 7px;font-weight:600}
+.ch-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ch-card{padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;transition:all .15s;text-align:center}
+.ch-card.on{border-color:var(--green-border);background:var(--green-dim)}
+.ch-card .ch-icon{font-size:1.8rem;margin-bottom:6px}
+.ch-card .ch-lbl{font-size:.85rem;font-weight:600;color:var(--gray)}
+.ch-card.on .ch-lbl{color:var(--green)}
+.spinner-sm{width:10px;height:10px;border-radius:50%;border:2px solid rgba(77,146,255,.3);border-top-color:var(--sky);animation:spin .8s linear infinite;display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.warn-box{padding:12px;border-radius:var(--radius-sm);font-size:.8rem;line-height:1.6}
+.warn-box.danger{background:var(--red-dim);border:1px solid var(--red-border);color:#ffaaaa}
+.warn-box.success{background:var(--green-dim);border:1px solid var(--green-border);color:#90e0b0}
+.send-btn{width:100%;padding:18px;border-radius:var(--radius);font-size:1.15rem;font-weight:700;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.send-btn.red{background:var(--red);color:#fff;box-shadow:0 6px 20px rgba(232,64,64,.3)}
+.send-btn.grn{background:var(--green);color:#000;box-shadow:0 6px 20px rgba(39,201,122,.3)}
+.send-btn.sending{background:var(--amber);color:#000;cursor:not-allowed}
+.send-btn.done{background:var(--green);color:#fff}
+.progress-bar{height:5px;background:var(--border);border-radius:100px;overflow:hidden}
+.progress-fill{height:100%;background:var(--green);border-radius:100px;transition:width .3s}
+.live-log{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;font-size:.7rem;font-family:monospace;max-height:100px;overflow-y:auto}
+.log-line{display:flex;gap:6px;padding:1px 0}
+.log-time{color:var(--gray2);flex-shrink:0}
+.log-msg.ok{color:var(--green)}.log-msg.err{color:var(--red)}.log-msg.info{color:var(--sky)}
+
+/* ── RESIDENTS PAGE ── */
+.res-toolbar{padding:12px 22px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.search-input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 12px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:.8rem;outline:none;width:200px;transition:border-color .2s}
+.search-input:focus{border-color:var(--blue-border)}
+.search-input::placeholder{color:var(--gray)}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:28px;text-align:center;cursor:pointer;transition:all .2s;margin:16px 22px}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--blue-border);background:var(--blue-dim)}
+.table-wrap{flex:1;overflow-y:auto;padding:0 22px 16px}
+table{width:100%;border-collapse:collapse}
+thead{position:sticky;top:0;background:var(--bg);z-index:1}
+th{text-align:left;padding:9px 12px;font-size:.65rem;text-transform:uppercase;letter-spacing:.6px;color:var(--gray);font-weight:600;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;font-size:.8rem;border-bottom:1px solid var(--border2);vertical-align:middle}
+tr:hover td{background:var(--border2)}
+.icon-btn{background:none;border:1px solid var(--border);border-radius:5px;padding:3px 6px;cursor:pointer;color:var(--gray);font-size:.75rem;transition:all .15s}
+.icon-btn:hover{border-color:rgba(255,255,255,.2);color:var(--white)}
+.icon-btn.danger:hover{border-color:var(--red-border);color:var(--red);background:var(--red-dim)}
+
+/* ── ALERT HISTORY PAGE ── */
+.hist-body{flex:1;overflow-y:auto;padding:18px 22px}
+.hist-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;transition:border-color .15s}
+.hist-card:hover{border-color:rgba(255,255,255,.12)}
+.hc-top{display:flex;align-items:flex-start;gap:12px}
+.hc-badge{padding:3px 10px;border-radius:100px;font-size:.7rem;font-weight:700;flex-shrink:0;border:1px solid}
+.hc-badge.fire{background:var(--red-dim);border-color:var(--red-border);color:#ff8888}
+.hc-badge.water{background:var(--blue-dim);border-color:var(--blue-border);color:var(--sky)}
+.hc-badge.power{background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber)}
+.hc-badge.rent{background:var(--green-dim);border-color:var(--green-border);color:var(--green)}
+.hc-badge.general{background:var(--border);border-color:var(--border);color:var(--gray)}
+.hc-badge.gas{background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber)}
+.hc-badge.flood{background:var(--blue-dim);border-color:var(--blue-border);color:var(--sky)}
+.hc-badge.sewage{background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber)}
+.hc-badge.hvac{background:var(--amber-dim);border-color:var(--amber-border);color:var(--amber)}
+.hc-badge.security{background:var(--red-dim);border-color:var(--red-border);color:#ff8888}
+.hc-badge.elevator{background:var(--blue-dim);border-color:var(--blue-border);color:var(--sky)}
+.hc-badge.air{background:var(--green-dim);border-color:var(--green-border);color:var(--green)}
+.hc-info{flex:1}
+.hc-title{font-weight:600;font-size:.88rem;margin-bottom:2px}
+.hc-meta{font-size:.72rem;color:var(--gray)}
+.hc-msg{font-size:.75rem;color:var(--gray);margin-top:6px;line-height:1.5}
+.hc-stats{display:flex;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border2)}
+.hc-stat .n{font-size:1.1rem;font-weight:700}
+.hc-stat .l{font-size:.62rem;color:var(--gray);text-transform:uppercase;letter-spacing:.4px}
+.hc-stat.ok .n{color:var(--green)}.hc-stat.warn .n{color:var(--amber)}.hc-stat.bad .n{color:var(--red)}
+
+/* ── SETTINGS PAGE ── */
+.settings-body{flex:1;overflow-y:auto;padding:18px 22px;max-width:600px}
+.settings-section{margin-bottom:24px}
+.settings-section h3{font-size:.75rem;text-transform:uppercase;letter-spacing:.7px;color:var(--gray);font-weight:600;margin-bottom:12px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+.form-row{margin-bottom:12px}
+.form-row label{display:block;font-size:.72rem;font-weight:600;color:var(--gray);margin-bottom:5px}
+.form-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:.85rem;outline:none;transition:border-color .2s}
+.form-input:focus{border-color:var(--blue-border)}
+.form-input::placeholder{color:var(--gray2)}
+.save-bar{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+.save-bar span{font-size:.78rem;color:var(--gray)}
+
+/* ── MODAL ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:420px;width:90%;position:relative;animation:mIn .2s ease;max-height:90vh;overflow-y:auto}
+@keyframes mIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal h2{font-family:'DM Serif Display',serif;font-size:1.3rem;margin-bottom:5px}
+.modal p{color:var(--gray);font-size:.82rem;margin-bottom:18px}
+.modal-close{position:absolute;top:12px;right:16px;background:none;border:none;color:var(--gray);font-size:1.2rem;cursor:pointer}
+
+/* ── LANGUAGE TOGGLE ── */
+.lang-toggle{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;gap:3px}
+.lang-btn{padding:5px 12px;border-radius:5px;font-size:.75rem;font-weight:700;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;color:var(--gray);background:transparent;transition:all .15s;display:flex;align-items:center;gap:5px}
+.lang-btn.active{background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(26,111,255,.3)}
+.lang-btn.bilingual.active{background:linear-gradient(135deg,#1a6fff,#00a36c);color:#fff}
+.bilingual-badge{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,rgba(26,111,255,.15),rgba(0,163,108,.15));border:1px solid rgba(26,111,255,.3);border-radius:4px;padding:2px 7px;font-size:.65rem;font-weight:700;color:#4d92ff}
+.msg-box-wrap{position:relative}
+.msg-lang-label{position:absolute;top:8px;right:10px;font-size:.62rem;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--gray2);pointer-events:none}
+.bilingual-msgs{display:flex;flex-direction:column;gap:8px}
+.bilingual-msgs .msg-lang-header{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:4px 8px;border-radius:4px;display:inline-block;margin-bottom:2px}
+.bilingual-msgs .msg-lang-header.en{background:rgba(26,111,255,.1);color:#4d92ff}
+.bilingual-msgs .msg-lang-header.es{background:rgba(196,150,10,.1);color:#d4a010}
+
+/* ── MOBILE ── */
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);z-index:50}
+.mob-nav-items{display:flex;justify-content:space-around}
+.mob-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:9px 4px 12px;cursor:pointer;color:var(--gray);font-size:.58rem;font-weight:600;gap:3px;transition:color .15s;background:none;border:none;font-family:'DM Sans',sans-serif}
+.mob-item svg{width:19px;height:19px}
+.mob-item.active{color:var(--sky)}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:300;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:.78rem;display:flex;align-items:center;gap:8px;animation:tIn .2s ease}
+.toast.ok{border-color:var(--green-border)}.toast.err{border-color:var(--red-border)}
+@keyframes tIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--gray2);border-radius:10px}
+
+@media(max-width:768px){
+  body.app-mode{overflow:auto}
+  .sidebar{display:none}.mob-nav{display:block}
+  .app{flex-direction:column;height:auto;overflow:visible}
+  .main{overflow:visible;height:auto}
+  .page{overflow:visible;height:auto;padding-bottom:70px}
+  .send-scroll{padding:14px 14px}
+  .table-wrap{padding:0 14px 14px}
+  .res-toolbar{padding:10px 14px}
+  .hist-body{padding:14px}
+  .settings-body{padding:14px;max-width:100%}
+  .page-header{padding:12px 14px}
+  .type-grid{grid-template-columns:1fr 1fr}
+  .toast-wrap{bottom:72px;right:10px;left:10px}
+  .toast{width:100%}
+}
+</style>
+</head>
+<body class="app-mode">
+
+<!-- ══ PASSWORD SCREEN ══ -->
+<div id="loginScreen" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:20px;padding:20px">
+  <div style="font-family:'DM Serif Display',serif;font-size:2.2rem;color:var(--white)">Resid<span style="color:var(--sky)">ial</span></div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;width:100%;max-width:360px;display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:1rem;font-weight:600;color:var(--white);text-align:center">Manager Login</div>
+    <div style="font-size:.82rem;color:var(--gray);text-align:center">Sign in with your Residial credentials</div>
+    <input id="loginEmail" type="email" placeholder="Email address" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:.95rem;outline:none;width:100%;transition:border-color .2s" onkeydown="if(event.key==='Enter')checkPass()" onfocus="this.style.borderColor='var(--blue-border)'" onblur="this.style.borderColor='var(--border)'">
+    <input id="loginPass" type="password" placeholder="Password" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:.95rem;outline:none;width:100%;transition:border-color .2s" onkeydown="if(event.key==='Enter')checkPass()" onfocus="this.style.borderColor='var(--blue-border)'" onblur="this.style.borderColor='var(--border)'">
+    <button onclick="checkPass()" style="background:var(--blue);border:none;border-radius:var(--radius-sm);padding:13px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;transition:opacity .2s">Sign In →</button>
+    <div id="loginErr" style="color:var(--red);font-size:.8rem;text-align:center;display:none">Incorrect email or password. Please try again.</div>
+    <div style="font-size:.75rem;color:var(--gray2);text-align:center">Don't have an account? <a href="https://residial.net" style="color:var(--sky);text-decoration:none">Sign up free →</a></div>
+  </div>
+</div>
+
+<!-- ══ APP SHELL ══ -->
+<div class="topbar" id="appShell">
+  <div class="logo">Resid<span>ial</span></div>
+  <select class="property-select" id="propertySelect">
+    <option>All Properties</option>
+    <option>Maple Grove Apts</option>
+    <option>Riverside Commons</option>
+    <option>Oak Street Homes</option>
+  </select>
+  <div class="topbar-right">
+    <div class="status-pill ready" id="sysStatus"><div class="pulse g"></div>Ready</div>
+    <div class="user-pill" id="signOutBtn">
+      <div class="user-avatar">PM</div>
+      <span id="userName">Manager</span>
+      <span style="color:var(--gray)">· Sign out</span>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="appBody">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="nav-label">Alerts</div>
+    <div class="nav-item active" onclick="showPage('send',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+      Send Alert
+    </div>
+    <div class="nav-item" onclick="showPage('history',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      Alert History
+      <span class="nav-badge" id="histBadge">3</span>
+    </div>
+    <div class="nav-label">Management</div>
+    <div class="nav-item" onclick="showPage('residents',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Residents
+      <span class="nav-badge" id="resBadge">0</span>
+    </div>
+    <div class="nav-item" onclick="showPage('team',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+      My Team
+    </div>
+    <div class="nav-item" onclick="showPage('accounting',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      Accounting
+    </div>
+    <div class="nav-item" onclick="showPage('settings',this)">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>
+      Settings
+    </div>
+    <div class="sidebar-plan">
+      <div class="plan-box">
+        <strong id="planName">Free Trial</strong>
+        <span id="planDoors">Loading...</span><br>
+        <span id="planPrice" style="color:var(--green);font-weight:600">14 days remaining</span>
+        <button onclick="subscribe()" id="subscribeBtn" style="width:100%;margin-top:8px;padding:8px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Upgrade Now →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- ══ SEND ALERT ══ -->
+    <div class="page active" id="page-send">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Send Alert</div>
+          <div class="page-sub" id="sendSub">Select a type and notify all residents</div>
+        </div>
+        <div class="page-header-right">
+          <div class="lang-toggle">
+            <button class="lang-btn active" id="langEn" onclick="setLang('en')">🇺🇸 English</button>
+            <button class="lang-btn" id="langEs" onclick="setLang('es')">🇲🇽 Español</button>
+            <button class="lang-btn bilingual" id="langBoth" onclick="setLang('both')">🌐 Both</button>
+          </div>
+        </div>
+      </div>
+      <div class="send-scroll">
+        <div class="card">
+          <div class="card-label">Message Type</div>
+          <div class="type-grid">
+            <div class="type-chip" onclick="selType('fire',this)"><span class="chip-icon">🔥</span><span class="chip-label">Fire / Evacuation</span></div>
+            <div class="type-chip water-type" onclick="selType('water',this)"><span class="chip-icon">💧</span><span class="chip-label">Water Main Break</span></div>
+            <div class="type-chip amber-type" onclick="selType('power',this)"><span class="chip-icon">⚡</span><span class="chip-label">Power Outage</span></div>
+            <div class="type-chip amber-type" onclick="selType('gas',this)"><span class="chip-icon">💨</span><span class="chip-label">Gas Leak</span></div>
+            <div class="type-chip water-type" onclick="selType('flood',this)"><span class="chip-icon">🌊</span><span class="chip-label">Flooding</span></div>
+            <div class="type-chip amber-type" onclick="selType('sewage',this)"><span class="chip-icon">🚽</span><span class="chip-label">Sewage Backup</span></div>
+            <div class="type-chip amber-type" onclick="selType('hvac',this)"><span class="chip-icon">🌡️</span><span class="chip-label">HVAC Failure</span></div>
+            <div class="type-chip" onclick="selType('security',this)"><span class="chip-icon">🔒</span><span class="chip-label">Security Incident</span></div>
+            <div class="type-chip water-type" onclick="selType('elevator',this)"><span class="chip-icon">🛗</span><span class="chip-label">Elevator Failure</span></div>
+            <div class="type-chip green-type" onclick="selType('air',this)"><span class="chip-icon">😷</span><span class="chip-label">Air Quality / Mold</span></div>
+            <div class="type-chip water-type" onclick="selType('general',this)"><span class="chip-icon">📢</span><span class="chip-label">General Notice</span></div>
+            <div class="type-chip rent-chip" onclick="selType('rent',this)"><span class="chip-icon" style="margin:0;font-size:1.4rem">💰</span>Rent Reminder — SMS Only</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ai-row">
+            <div class="ai-tag">✦ AI-Generated</div>
+            <div id="bilingualBadge" class="bilingual-badge" style="display:none">🌐 EN + ES</div>
+            <div class="spinner-sm" id="aiSpin"></div>
+            <span style="font-size:.7rem;color:var(--gray);margin-left:auto" id="charCt">0 chars</span>
+            <button class="btn btn-ghost" style="padding:4px 8px;font-size:.7rem" onclick="regenMsg()">↺ Regen</button>
+          </div>
+          <div id="singleMsgWrap">
+            <div class="card-label" id="msgLangLabel">Message</div>
+            <div class="msg-box-wrap">
+              <textarea class="msg-textarea" id="msgBox" placeholder="Select an alert type above..." oninput="updateChars()"></textarea>
+              <div class="msg-lang-label" id="msgLangFlag"></div>
+            </div>
+          </div>
+          <div id="dualMsgWrap" style="display:none">
+            <div class="bilingual-msgs">
+              <div>
+                <span class="msg-lang-header en">🇺🇸 English Message</span>
+                <textarea class="msg-textarea" id="msgBoxEn" placeholder="English message..." oninput="updateChars()" style="margin-top:4px"></textarea>
+              </div>
+              <div>
+                <span class="msg-lang-header es">🇲🇽 Mensaje en Español</span>
+                <textarea class="msg-textarea" id="msgBoxEs" placeholder="Mensaje en español..." oninput="updateChars()" style="margin-top:4px"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-label">Channels</div>
+          <div class="ch-cards">
+            <div class="ch-card on" id="callCard" onclick="toggleCh('call')">
+              <div class="ch-icon">📞</div>
+              <div class="ch-lbl" id="callLbl">Voice Call — ON</div>
+            </div>
+            <div class="ch-card on" id="smsCard" onclick="toggleCh('sms')">
+              <div class="ch-icon">💬</div>
+              <div class="ch-lbl" id="smsLbl">SMS Text — ON</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="warn-box danger" id="warnBox">⚠️ This will immediately notify <strong id="warnCt">0</strong> residents. Confirm before sending.</div>
+        <button class="send-btn red" id="sendBtn" onclick="sendAlert()">🚨 Alert All Residents</button>
+
+        <div style="display:none" id="progSection">
+          <div style="display:flex;justify-content:space-between;font-size:.7rem;margin-bottom:4px">
+            <span style="color:var(--gray)">Sending...</span>
+            <span id="progPct" style="color:var(--sky)">0%</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="progFill"></div></div>
+        </div>
+
+        <div>
+          <div class="card-label">Live Log</div>
+          <div class="live-log" id="liveLog">
+            <div class="log-line"><span class="log-time">--:--:--</span><span class="log-msg info"> Waiting to send...</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ RESIDENTS ══ -->
+    <div class="page" id="page-residents">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Residents</div>
+          <div class="page-sub">Manage your resident contact list</div>
+        </div>
+        <div class="page-header-right">
+          <button class="btn btn-ghost" onclick="openAddRes()">+ Add</button>
+          <button class="btn btn-primary" onclick="document.getElementById('fileIn').click()">⬆ Import Spreadsheet</button>
+          <input type="file" id="fileIn" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(this)">
+        </div>
+      </div>
+      <div class="res-toolbar">
+        <input class="search-input" type="text" placeholder="🔍 Search..." oninput="filterRes(this.value)">
+        <span style="color:var(--gray);font-size:.78rem;margin-left:auto" id="resCt">0 residents</span>
+        <button class="btn btn-ghost" style="font-size:.72rem;padding:5px 10px;color:var(--sky)" onclick="saveResidentsToCloud().then(()=>toast('Saved to cloud ☁️','ok'))">☁️ Save</button>
+        <button class="btn btn-ghost" style="font-size:.72rem;padding:5px 10px" onclick="exportResCSV()">⬇ CSV</button>
+        <button class="btn btn-ghost" style="font-size:.72rem;padding:5px 10px;color:var(--red)" onclick="clearRes()">🗑 Clear</button>
+      </div>
+      <div id="uploadZone" style="display:block">
+        <div class="upload-zone" onclick="document.getElementById('fileIn').click()" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropFile(event)">
+          <div style="font-size:2.5rem;margin-bottom:10px">📋</div>
+          <h3 style="font-size:.95rem;margin-bottom:6px">Upload Your Resident Spreadsheet</h3>
+          <p style="font-size:.78rem;color:var(--gray)">Drag & drop an Excel or CSV file · Columns: Name, Unit, Phone</p>
+          <button class="btn btn-primary" style="margin-top:12px;pointer-events:none">Choose File</button>
+        </div>
+      </div>
+      <div class="table-wrap" id="tableWrap" style="display:none">
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" onchange="selAll(this)"></th>
+              <th>Name</th><th>Property</th><th>Unit</th><th>Phone</th><th>Email</th><th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="resTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ HISTORY ══ -->
+    <div class="page" id="page-history">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Alert History</div>
+          <div class="page-sub">All alerts sent from your account</div>
+        </div>
+        <div class="page-header-right">
+          <button class="btn btn-ghost" onclick="exportHist()">⬇ Export</button>
+        </div>
+      </div>
+      <div class="hist-body" id="histBody"></div>
+    </div>
+
+    <!-- ══ SETTINGS ══ -->
+    <!-- ══ MY TEAM ══ -->
+    <div class="page" id="page-team">
+      <div class="page-header">
+        <div><div class="page-title">My Team</div><div class="page-sub">Manage your property managers and their locations</div></div>
+        <button class="btn btn-primary" onclick="openAddMgrModal()">+ Add Manager</button>
+      </div>
+
+      <!-- Company Info Banner -->
+      <div style="background:var(--blue-dim);border:1px solid var(--blue-border);border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px">
+        <div style="font-size:1.6rem">🏢</div>
+        <div>
+          <div style="font-weight:700;font-size:.95rem" id="teamCoName">Your Company</div>
+          <div style="font-size:.78rem;color:var(--gray)" id="teamCoSub">Set your company name in Settings</div>
+        </div>
+      </div>
+
+      <!-- Managers list -->
+      <div id="teamManagersList"></div>
+
+      <!-- Add Location Modal -->
+      <div class="overlay" id="addLocOverlay" onclick="closeAddLoc(event)">
+        <div class="modal">
+          <button class="modal-close" onclick="closeAddLoc()">×</button>
+          <h2>Add Location</h2>
+          <p>Assign a property to this manager.</p>
+          <input type="hidden" id="tl-mgr-id">
+          <div class="form-row"><label>Property Name *</label><input class="form-input" id="tl-name" placeholder="Maple Grove Apts"></div>
+          <div class="form-row"><label>Address</label><input class="form-input" id="tl-address" placeholder="123 Main St, Boone NC"></div>
+          <div class="form-row"><label>Number of Units</label><input class="form-input" id="tl-doors" placeholder="24" type="number"></div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-ghost" style="flex:1" onclick="closeAddLoc()">Cancel</button>
+            <button class="btn btn-primary" style="flex:1" onclick="saveTeamLocation()">Add Location</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Manager Modal -->
+      <div class="overlay" id="addMgrOverlay" onclick="closeAddMgr(event)">
+        <div class="modal">
+          <button class="modal-close" onclick="closeAddMgr()">×</button>
+          <h2>Add Manager</h2>
+          <p>Add a property manager to your team.</p>
+          <input type="hidden" id="tm-id">
+          <div class="form-row"><label>Full Name *</label><input class="form-input" id="tm-name" placeholder="Sarah Johnson"></div>
+          <div class="form-row"><label>Email * <span style="font-size:.72rem;color:var(--gray)">(used to log in)</span></label><input class="form-input" id="tm-email" placeholder="sarah@company.com" type="email"></div>
+          <div class="form-row"><label>Password <span style="font-size:.72rem;color:var(--gray)">(leave blank to keep existing)</span></label><input class="form-input" id="tm-password" placeholder="Set a login password" type="password"></div>
+          <div class="form-row"><label>Phone</label><input class="form-input" id="tm-phone" placeholder="+18285551234" type="tel"></div>
+          <div class="form-row"><label>Title</label><input class="form-input" id="tm-title" placeholder="Property Manager"></div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-ghost" style="flex:1" onclick="closeAddMgr()">Cancel</button>
+            <button class="btn btn-primary" style="flex:1" onclick="saveTeamManager()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ACCOUNTING REPORT ══ -->
+    <div class="page" id="page-accounting">
+      <div class="page-header">
+        <div><div class="page-title">Accounting Report</div><div class="page-sub">Billable activity summary for your properties</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="exportAcctCSV()">⬇️ CSV</button>
+          <button class="btn btn-ghost" onclick="emailAcctReport()">📧 Email</button>
+          <button class="btn btn-primary" onclick="printAccounting()">🖨️ Print / PDF</button>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+        <div>
+          <label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:4px">From</label>
+          <input type="date" id="acct-from" class="form-input" style="width:160px">
+        </div>
+        <div>
+          <label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:4px">To</label>
+          <input type="date" id="acct-to" class="form-input" style="width:160px">
+        </div>
+        <div>
+          <label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:4px">Accounting Email</label>
+          <input type="email" id="acct-email" class="form-input" placeholder="accounting@company.com" style="width:220px">
+        </div>
+        <button class="btn btn-primary" onclick="renderAccounting()">Generate Report</button>
+        <button class="btn btn-ghost" onclick="setAcctCurrentMonth()">This Month</button>
+      </div>
+
+      <div id="acctReport"></div>
+    </div>
+
+    <div class="page" id="page-settings">
+      <div class="page-header">
+        <div><div class="page-title">Settings</div><div class="page-sub">Configure your Residial account</div></div>
+      </div>
+      <div class="settings-body">
+
+        <div class="settings-section">
+          <h3>Property Manager Profile</h3>
+          <p style="font-size:.78rem;color:var(--gray);margin-bottom:14px;line-height:1.6">This information appears in every alert sent to residents.</p>
+          <div class="form-row">
+            <label>Management Company Name <span style="color:var(--blue);font-size:.75rem">(shown in all alerts)</span></label>
+            <input class="form-input" id="s-co" placeholder="Maple Grove Property Management" oninput="updateMsgPreview()">
+          </div>
+          <div class="form-row">
+            <label>Your Name <span style="color:var(--gray);font-size:.75rem">(optional — shown in alerts)</span></label>
+            <input class="form-input" id="s-name" placeholder="Sarah Johnson" oninput="updateMsgPreview()">
+          </div>
+          <div class="form-row">
+            <label>Email</label>
+            <input class="form-input" id="s-email" placeholder="sarah@maplegrovemgmt.com">
+          </div>
+          <div class="form-row">
+            <label>Total Doors Managed</label>
+            <input class="form-input" id="s-doors" placeholder="100" type="number" min="1">
+          </div>
+
+          <!-- Live preview -->
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:6px">
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--gray2);margin-bottom:8px">📱 Alert Preview</div>
+            <div id="msgPreview" style="font-size:.85rem;color:var(--gray);line-height:1.6;font-style:italic">Fill in your company name above to see a preview.</div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Twilio Integration</h3>
+          <p style="font-size:.78rem;color:var(--gray);margin-bottom:12px;line-height:1.6">Get credentials at <strong style="color:var(--sky)">console.twilio.com</strong></p>
+          <div class="form-row"><label>Account SID</label><input class="form-input" id="s-sid" placeholder="ACxxxxxxxx..."></div>
+          <div class="form-row"><label>Auth Token</label><input class="form-input" type="password" id="s-token" placeholder="••••••••••••••••"></div>
+          <div class="form-row"><label>Twilio Phone Number</label><input class="form-input" id="s-from" placeholder="+15551234567"></div>
+          <div class="form-row"><label>Backend URL</label><input class="form-input" id="s-backend" placeholder="https://your-app.onrender.com"></div>
+        </div>
+        <div class="save-bar">
+          <span>Settings saved locally in your browser</span>
+          <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+        </div>
+        <div style="margin-top:20px">
+          <button class="btn btn-ghost" style="color:var(--red)" id="settingsSignOut">← Sign Out</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- MOBILE NAV -->
+<div class="mob-nav" id="mobNav">
+  <div class="mob-nav-items">
+    <button class="mob-item active" id="mob-send" onclick="mobGo('send','mob-send')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+      Send
+    </button>
+    <button class="mob-item" id="mob-residents" onclick="mobGo('residents','mob-residents')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Residents
+    </button>
+    <button class="mob-item" id="mob-team" onclick="mobGo('team','mob-team')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+      My Team
+    </button>
+    <button class="mob-item" id="mob-history" onclick="mobGo('history','mob-history')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      History
+    </button>
+    <button class="mob-item" id="mob-settings" onclick="mobGo('settings','mob-settings')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>
+      Settings
+    </button>
+  </div>
+</div>
+
+<!-- ADD RESIDENT MODAL -->
+<div class="overlay" id="addResOverlay" onclick="closeAddRes(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAddRes()">×</button>
+    <h2>Add Resident</h2>
+    <p>Enter the resident's contact details and where they live.</p>
+    <div class="form-row"><label>Full Name *</label><input class="form-input" id="r-name" placeholder="Sarah Mitchell"></div>
+    <div class="form-row"><label>Property / Building *</label><input class="form-input" id="r-property" placeholder="Maple Grove Apts"></div>
+    <div class="form-row"><label>Unit / Apt Number *</label><input class="form-input" id="r-unit" placeholder="4B"></div>
+    <div class="form-row"><label>Phone Number *</label><input class="form-input" id="r-phone" placeholder="+15550123456" type="tel"></div>
+    <div class="form-row"><label>Email (optional)</label><input class="form-input" id="r-email" placeholder="resident@email.com" type="email"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeAddRes()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="addResident()">Add Resident</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT RESIDENT MODAL -->
+<div class="overlay" id="editResOverlay" onclick="closeEditRes(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeEditRes()">×</button>
+    <h2>Edit Resident</h2>
+    <p>Update the resident's details.</p>
+    <input type="hidden" id="e-id">
+    <div class="form-row"><label>Full Name *</label><input class="form-input" id="e-name" placeholder="Sarah Mitchell"></div>
+    <div class="form-row"><label>Property / Building *</label><input class="form-input" id="e-property" placeholder="Maple Grove Apts"></div>
+    <div class="form-row"><label>Unit / Apt Number *</label><input class="form-input" id="e-unit" placeholder="4B"></div>
+    <div class="form-row"><label>Phone Number *</label><input class="form-input" id="e-phone" placeholder="+15550123456" type="tel"></div>
+    <div class="form-row"><label>Email (optional)</label><input class="form-input" id="e-email" placeholder="resident@email.com" type="email"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeEditRes()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="saveEditRes()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function checkPass(){
+  const pass = document.getElementById('loginPass').value;
+  if(pass === '123456'){
+    document.getElementById('loginScreen').style.display = 'none';
+    localStorage.setItem('residial_auth', '1');
+  } else {
+    document.getElementById('loginErr').style.display = 'block';
+    document.getElementById('loginPass').style.borderColor = 'var(--red)';
+    setTimeout(()=>{
+      document.getElementById('loginPass').style.borderColor = '';
+    }, 1000);
+  }
+}
+
+// ── STATE ──
+let residents = [];
+let alertHistory = JSON.parse(localStorage.getItem('pm_history')||'[]');
+let settings = JSON.parse(localStorage.getItem('pm_settings')||'{}');
+let channels = {call:true,sms:true};
+let selectedType = null;
+let isSending = false;
+let isLoggedIn = false;
+
+// ── LANGUAGE ──
+let currentLang = 'en'; // 'en' | 'es' | 'both'
+
+function setLang(lang){
+  currentLang = lang;
+  // Update toggle buttons
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('lang'+lang.charAt(0).toUpperCase()+lang.slice(1)).classList.add('active');
+  // Show/hide dual vs single textarea
+  const dual = lang === 'both';
+  document.getElementById('singleMsgWrap').style.display = dual ? 'none' : 'block';
+  document.getElementById('dualMsgWrap').style.display   = dual ? 'block' : 'none';
+  document.getElementById('bilingualBadge').style.display = dual ? 'inline-flex' : 'none';
+  // Update language flag label
+  const flagEl = document.getElementById('msgLangFlag');
+  const labelEl = document.getElementById('msgLangLabel');
+  if(lang==='en'){ flagEl.textContent='🇺🇸'; labelEl.textContent='Message — English'; }
+  else if(lang==='es'){ flagEl.textContent='🇲🇽'; labelEl.textContent='Mensaje — Español'; }
+  // Regen message in new language if type already selected
+  if(selectedType) genMsg(selectedType);
+}
+
+// ── MESSAGES — ENGLISH ──
+const msgs = {
+  fire:    (p,m,n,loc)=>`Hi${n?' '+n:''}! This is an urgent emergency alert from ${p}${loc?' regarding '+loc:''}. A fire alarm has been activated. Please evacuate immediately using the nearest stairwell. Do not use elevators. Proceed to your assembly area and await further instructions. Emergency services have been notified.`,
+  water:   (p,m,n,loc)=>`Hi${n?' '+n:''}! This is a message from ${p}${loc?' regarding '+loc:''}. Water intrusion has been detected. If you are in a lower-level unit, move to higher floors immediately. Do not walk through standing water. Emergency crews are responding.`,
+  power:   (p,m,n,loc)=>`Hi${n?' '+n:''}! This is a message from ${p}${loc?' regarding '+loc:''}. A power outage is affecting the building. Emergency lighting is active. Please avoid elevators. Our team is working to restore power as quickly as possible.`,
+  gas:     (p,m,n,loc)=>`Hi${n?' '+n:''}! URGENT message from ${p}${loc?' regarding '+loc:''}. A gas leak has been detected. All residents must evacuate immediately. Leave the building at once. Do not use electrical switches or elevators. Call 911. Do not re-enter until authorities give the all-clear.`,
+  flood:   (p,m,n,loc)=>`Hi${n?' '+n:''}! This is a message from ${p}${loc?' regarding '+loc:''}. Flooding has been detected in the building. If you are in a lower-level unit, move to higher floors immediately. Do not walk through standing water. Emergency crews are responding.`,
+  sewage:  (p,m,n,loc)=>`Hi${n?' '+n:''}! This is a message from ${p}${loc?' regarding '+loc:''}. A sewage backup has been detected. This is a health hazard. Please avoid use of toilets, sinks, and drains until further notice. Our maintenance team is responding immediately.`,
+  hvac:    (p,m,n,loc)=>`Hi${n?' '+n:''}! This is a message from ${p}${loc?' regarding '+loc:''}. The building HVAC system is currently experiencing a failure. We are working to restore heating and cooling as quickly as possible. If you are experiencing a medical emergency, please call 911.`,
+  security:(p,m,n,loc)=>`Hi${n?' '+n:''}! URGENT message from ${p}${loc?' regarding '+loc:''}. There is an active security incident near the building. Please remain in your unit, lock your doors, and do not open them for strangers. Authorities have been notified.`,
+  elevator:(p,m,n,loc)=>`Hi${n?' '+n:''}! This is a message from ${p}${loc?' regarding '+loc:''}. The building elevator is currently out of service. Please use the stairwells for access to all floors. We will notify you when service is restored.`,
+  air:     (p,m,n,loc)=>`Hi${n?' '+n:''}! This is a message from ${p}${loc?' regarding '+loc:''}. An air quality concern has been identified in the building. Please ventilate your unit by opening windows and avoid affected common areas. If you feel unwell, please call 911.`,
+  general: (p,m,n,loc)=>`Hi${n?' '+n:''}! This is an important notice from ${p}${loc?' regarding '+loc:''}. Please check the community board or your resident portal for updates affecting all residents. Thank you for your attention.`,
+  rent:    (p,m,n,loc)=>`Hi${n?' '+n:''}! Friendly reminder from ${p}${loc?' regarding '+loc:''}. Your rent is due on the 1st. Please submit your payment on time to avoid late fees. If you've already paid, thank you and please disregard this message.`,
+};
+
+// ── MESSAGES — SPANISH ──
+const msgsEs = {
+  fire:    (p,m,n,loc)=>`¡Hola${n?' '+n:''}! Mensaje urgente de ${p}${loc?' sobre '+loc:''}. Se ha activado la alarma de incendio. Por favor evacúen inmediatamente usando las escaleras. No usen los elevadores. Los servicios de emergencia han sido notificados.`,
+  water:   (p,m,n,loc)=>`¡Hola${n?' '+n:''}! Mensaje de ${p}${loc?' sobre '+loc:''}. Se detectó una rotura en la tubería de agua. Por favor dejen de usar el agua hasta nuevo aviso. Nuestro equipo de mantenimiento está en el lugar.`,
+  power:   (p,m,n,loc)=>`¡Hola${n?' '+n:''}! Mensaje de ${p}${loc?' sobre '+loc:''}. Hay un corte de electricidad en el edificio. Las luces de emergencia están activas. Eviten los elevadores. Estamos trabajando para restablecer el servicio.`,
+  gas:     (p,m,n,loc)=>`¡Hola${n?' '+n:''}! Mensaje urgente de ${p}${loc?' sobre '+loc:''}. Se detectó una fuga de gas. Todos deben evacuar inmediatamente. No usen interruptores eléctricos ni elevadores. Llamen al 911.`,
+  flood:   (p,m,n,loc)=>`¡Hola${n?' '+n:''}! Mensaje de ${p}${loc?' sobre '+loc:''}. Se detectó entrada de agua. Si están en nivel inferior, suban a pisos más altos de inmediato. No caminen por agua estancada.`,
+  sewage:  (p,m,n,loc)=>`¡Hola${n?' '+n:''}! Mensaje de ${p}${loc?' sobre '+loc:''}. Se detectó un problema de drenaje. Eviten el uso de inodoros, lavabos y desagües hasta nuevo aviso. Nuestro equipo está respondiendo.`,
+  hvac:    (p,m,n,loc)=>`¡Hola${n?' '+n:''}! Mensaje de ${p}${loc?' sobre '+loc:''}. El sistema de climatización está experimentando una falla. Estamos trabajando para restaurarlo. Si tiene una emergencia médica, llame al 911.`,
+  security:(p,m,n,loc)=>`¡Hola${n?' '+n:''}! Mensaje urgente de ${p}${loc?' sobre '+loc:''}. Hay un incidente de seguridad cerca del edificio. Permanezcan en su unidad, cierren con llave y no abran la puerta a extraños.`,
+  elevator:(p,m,n,loc)=>`¡Hola${n?' '+n:''}! Mensaje de ${p}${loc?' sobre '+loc:''}. El elevador está fuera de servicio. Por favor usen las escaleras. Les notificaremos cuando el servicio sea restaurado.`,
+  air:     (p,m,n,loc)=>`¡Hola${n?' '+n:''}! Mensaje de ${p}${loc?' sobre '+loc:''}. Se identificó un problema de calidad del aire. Ventilen su unidad abriendo ventanas. Si se sienten mal, llamen al 911.`,
+  general: (p,m,n,loc)=>`¡Hola${n?' '+n:''}! Aviso importante de ${p}${loc?' sobre '+loc:''}. Por favor revisen el tablón de la comunidad para información que afecta a todos los residentes. Gracias.`,
+  rent:    (p,m,n,loc)=>`¡Hola${n?' '+n:''}! Recordatorio de ${p}${loc?' sobre '+loc:''}. Su renta vence el día 1. Por favor realice su pago a tiempo para evitar cargos por retraso. Si ya pagó, ignore este mensaje.`,
+};
+
+const typeEmoji = {fire:'🔥',water:'💧',power:'⚡',gas:'💨',flood:'🌊',sewage:'🚽',hvac:'🌡️',security:'🔒',elevator:'🛗',air:'😷',general:'📢',rent:'💰'};
+const typeName  = {fire:'Fire / Evacuation',water:'Water Main Break',power:'Power Outage',gas:'Gas Leak',flood:'Flooding',sewage:'Sewage Backup',hvac:'HVAC Failure',security:'Security Incident',elevator:'Elevator Failure',air:'Air Quality / Mold',general:'General Notice',rent:'Rent Reminder'};
+
+// ── INIT ──
+function doLogout(){
+  localStorage.removeItem('residial_auth');
+  localStorage.removeItem('residial_current_manager');
+  location.reload();
+}
+
+// Manager accounts stored by admin — keyed by email
+function getManagerAccounts(){
+  return JSON.parse(localStorage.getItem('residial_manager_accounts') || '[]');
+}
+
+function checkPass(){
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pass = document.getElementById('loginPass').value;
+
+  // Check against manager accounts created by admin
+  const accounts = getManagerAccounts();
+  const match = accounts.find(a => a.email.toLowerCase() === email && a.password === pass);
+
+  // Also allow master password fallback (for account owner)
+  const isMaster = pass === '123456';
+
+  if(match || isMaster){
+    localStorage.setItem('residial_auth','1');
+    if(match) localStorage.setItem('residial_current_manager', JSON.stringify(match));
+    document.getElementById('loginScreen').style.display = 'none';
+    const displayName = match ? match.name : (settings.name || 'Manager');
+    const company = match ? match.company : (settings.company || '');
+    initApp(displayName, company);
+  } else {
+    const err = document.getElementById('loginErr');
+    err.style.display = 'block';
+    document.getElementById('loginPass').style.borderColor = 'var(--red)';
+    setTimeout(()=>{ document.getElementById('loginPass').style.borderColor=''; }, 1000);
+  }
+}
+
+function initApp(displayName, company){
+  const userNameEl = document.getElementById('userName');
+  if(userNameEl) userNameEl.textContent = displayName;
+  if(company && !settings.company){
+    settings.company = company;
+    localStorage.setItem('pm_settings', JSON.stringify(settings));
+  }
+  loadSettings(); updatePlanDisplay();
+  renderHistory();
+  updateBadges();
+  addLog('Welcome to Residial!', 'info');
+  if(getAccountEmail()){
+    loadResidentsFromCloud();
+  } else {
+    addLog('Add your email in Settings to save residents across devices.', 'info');
+  }
+}
+
+window.addEventListener('DOMContentLoaded', function(){
+  const signOut = document.getElementById('signOutBtn');
+  if(signOut) signOut.addEventListener('click', doLogout);
+  const settingsSignOut = document.getElementById('settingsSignOut');
+  if(settingsSignOut) settingsSignOut.addEventListener('click', doLogout);
+
+  // Check for saved session
+  if(localStorage.getItem('residial_auth') === '1'){
+    document.getElementById('loginScreen').style.display = 'none';
+    const savedMgr = JSON.parse(localStorage.getItem('residial_current_manager') || 'null');
+    const displayName = savedMgr ? savedMgr.name : (settings.name || 'Manager');
+    const company = savedMgr ? savedMgr.company : (settings.company || '');
+    initApp(displayName, company);
+    return;
+  }
+
+  // Show login screen
+  document.getElementById('loginScreen').style.display = 'flex';
+});
+
+// ── NAV ──
+function showPage(id, el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+  if(id==='residents') renderResidents();
+  if(id==='history') renderHistory();
+  if(id==='team') renderTeam();
+  if(id==='accounting'){ setAcctCurrentMonth(); renderAccounting(); }
+}
+
+function mobGo(id, mobId){
+  const items = document.querySelectorAll('.nav-item');
+  let match = null;
+  const keywords = {send:'send',residents:'resident',history:'history',team:'team',accounting:'account',settings:'setting'};
+  items.forEach(i=>{ if(i.textContent.toLowerCase().includes(keywords[id]||id)) match=i; });
+  showPage(id, match);
+  document.querySelectorAll('.mob-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById(mobId)?.classList.add('active');
+  window.scrollTo(0,0);
+}
+
+// ── ALERT TYPE ──
+function selType(type, el){
+  document.querySelectorAll('.type-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  selectedType = type;
+  genMsg(type);
+  const isRent = type==='rent';
+  channels.call = !isRent;
+  document.getElementById('callCard').classList.toggle('on', !isRent);
+  document.getElementById('callLbl').textContent = 'Voice Call — '+(isRent?'OFF':'ON');
+  if(isRent){
+    document.getElementById('sendBtn').textContent='💰 Send Rent Reminder';
+    document.getElementById('sendBtn').className='send-btn grn';
+    document.getElementById('warnBox').className='warn-box success';
+  } else {
+    document.getElementById('sendBtn').textContent='🚨 Alert All Residents';
+    document.getElementById('sendBtn').className='send-btn red';
+    document.getElementById('warnBox').className='warn-box danger';
+  }
+}
+
+function genMsg(type){
+  document.getElementById('aiSpin').style.display='inline-block';
+  const prop = settings.company || document.getElementById('propertySelect').value || 'your building';
+  const mgr = settings.name ? settings.name.trim() : '';
+  // Use first resident's info for preview, or placeholders
+  const sample = residents[0];
+  const resName = sample ? sample.name.split(' ')[0] : '';
+  const resLoc = sample ? [sample.property, sample.unit].filter(Boolean).join(', Unit ') : '';
+  setTimeout(()=>{
+    document.getElementById('aiSpin').style.display='none';
+    if(currentLang === 'both'){
+      document.getElementById('msgBoxEn').value = msgs[type] ? msgs[type](prop, mgr, resName, resLoc) : '';
+      document.getElementById('msgBoxEs').value = msgsEs[type] ? msgsEs[type](prop, mgr, resName, resLoc) : '';
+    } else if(currentLang === 'es'){
+      document.getElementById('msgBox').value = msgsEs[type] ? msgsEs[type](prop, mgr, resName, resLoc) : '';
+    } else {
+      document.getElementById('msgBox').value = msgs[type] ? msgs[type](prop, mgr, resName, resLoc) : '';
+    }
+    updateChars();
+  },700);
+}
+
+function regenMsg(){ if(selectedType) genMsg(selectedType); else toast('Select a type first','err'); }
+function updateChars(){
+  let len = 0;
+  if(currentLang === 'both'){
+    len = (document.getElementById('msgBoxEn').value.length + document.getElementById('msgBoxEs').value.length);
+    document.getElementById('charCt').textContent = len + ' chars (EN+ES)';
+  } else {
+    len = document.getElementById('msgBox').value.length;
+    document.getElementById('charCt').textContent = len + ' chars';
+  }
+}
+
+// ── CHANNELS ──
+function toggleCh(ch){
+  channels[ch]=!channels[ch];
+  const isOn=channels[ch];
+  document.getElementById(ch+'Card').classList.toggle('on',isOn);
+  document.getElementById(ch+'Lbl').textContent = (ch==='call'?'Voice Call':'SMS Text')+' — '+(isOn?'ON':'OFF');
+}
+
+// ── SEND ──
+async function sendAlert(){
+  if(isSending) return;
+  if(!selectedType){ toast('Select an alert type','err'); return; }
+  // Use only selected residents, or all if none are checked
+  const selectedResidents = residents.filter(r=>r.selected);
+  const targetResidents = selectedResidents.length > 0 ? selectedResidents : residents;
+
+  if(!targetResidents.length){ toast('No residents loaded. Upload a spreadsheet first.','err'); return; }
+  if(!channels.call && !channels.sms){ toast('Enable at least one channel','err'); return; }
+
+  // Get message(s) based on current language mode
+  let msgEn = '', msgEs = '';
+  if(currentLang === 'both'){
+    msgEn = document.getElementById('msgBoxEn').value.trim();
+    msgEs = document.getElementById('msgBoxEs').value.trim();
+    if(!msgEn || !msgEs){ toast('Both English and Spanish messages are required','err'); return; }
+  } else if(currentLang === 'es'){
+    msgEs = document.getElementById('msgBox').value.trim();
+    if(!msgEs){ toast('Message cannot be empty','err'); return; }
+  } else {
+    msgEn = document.getElementById('msgBox').value.trim();
+    if(!msgEn){ toast('Message cannot be empty','err'); return; }
+  }
+
+  const langLabel = currentLang === 'both' ? '🌐 EN+ES' : currentLang === 'es' ? '🇲🇽 ES' : '🇺🇸 EN';
+
+  isSending = true;
+  const btn = document.getElementById('sendBtn');
+  btn.className='send-btn sending'; btn.textContent='⏳ Sending...';
+  document.getElementById('progSection').style.display='block';
+
+  const selLabel = selectedResidents.length > 0 ? `${targetResidents.length} selected residents` : `all ${targetResidents.length} residents`;
+  addLog(`Starting ${typeName[selectedType]} alert [${langLabel}] to ${selLabel}...`,'info');
+  if(currentLang === 'both') addLog('Bilingual mode: sending English + Spanish messages','info');
+
+  // Personalize messages per resident
+  const prop = settings.company || document.getElementById('propertySelect').value || 'your building';
+  const mgr = settings.name ? settings.name.trim() : '';
+  const personalizedResidents = targetResidents.map(r => {
+    const firstName = r.name ? r.name.split(' ')[0] : '';
+    const loc = [r.property, r.unit].filter(Boolean).join(', Unit ');
+    return {
+      ...r,
+      personalizedMsgEn: msgs[selectedType] ? msgs[selectedType](prop, mgr, firstName, loc) : msgEn,
+      personalizedMsgEs: msgsEs[selectedType] ? msgsEs[selectedType](prop, mgr, firstName, loc) : msgEs,
+    };
+  });
+
+  let sent=0, failed=0;
+  const backendUrl = settings.backendUrl || 'https://residial-server.onrender.com';
+
+  if(backendUrl){
+    try{
+      const res = await fetch(backendUrl+'/api/send-alert',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          residents: personalizedResidents, channels,
+          message: msgEn || msgEs,
+          messageEn: msgEn,
+          messageEs: msgEs,
+          language: currentLang,
+          type: selectedType,
+          property: settings.company || document.getElementById('propertySelect').value,
+          fromPhone: settings.fromPhone, accountSid: settings.accountSid, authToken: settings.authToken
+        })
+      });
+      const data = await res.json();
+      sent=data.sent||0; failed=data.failed||0;
+      addLog(`API: ${sent} sent, ${failed} failed`, sent>0?'ok':'err');
+    }catch(e){ addLog('Backend error — running demo mode','err'); const r=await sim(langLabel, targetResidents); sent=r.sent; failed=r.failed; }
+  } else {
+    addLog('No backend configured — demo mode','info');
+    const r=await sim(langLabel, targetResidents); sent=r.sent; failed=r.failed;
+  }
+
+  // Save history
+  const msgForHistory = currentLang === 'both' ? `[EN] ${msgEn}\n\n[ES] ${msgEs}` : (msgEs || msgEn);
+  alertHistory.unshift({
+    id:Date.now(), type:selectedType, typeName:typeName[selectedType],
+    property:settings.company||document.getElementById('propertySelect').value||'Your Property',
+    message: msgForHistory,
+    language: currentLang,
+    channels:{...channels}, sent, failed, total:targetResidents.length,
+    date:new Date().toISOString()
+  });
+  localStorage.setItem('pm_history', JSON.stringify(alertHistory.slice(0,100)));
+  updateBadges();
+
+  btn.className='send-btn done'; btn.textContent='✓ Alert Sent!';
+  addLog(`Complete. ${sent} reached, ${failed} failed.`, sent>0?'ok':'err');
+  toast(`Alert sent to ${sent} residents!`,'ok');
+  setTimeout(()=>{ btn.className=selectedType==='rent'?'send-btn grn':'send-btn red'; btn.textContent=selectedType==='rent'?'💰 Send Rent Reminder':'🚨 Alert All Residents'; isSending=false; },3500);
+}
+
+async function sim(langLabel='🇺🇸 EN', targetResidents){
+  const list = targetResidents || residents;
+  return new Promise(resolve=>{
+    let i=0, sent=0, failed=0;
+    const total=list.length;
+    const isBilingual = currentLang === 'both';
+    const interval=setInterval(()=>{
+      if(i>=total){ clearInterval(interval); resolve({sent,failed}); return; }
+      const r=list[i];
+      const ok=Math.random()>.08;
+      if(ok){
+        sent++;
+        if(isBilingual){
+          addLog(`✓ ${r.name} (${r.unit}) — 🇺🇸 EN sent`, 'ok');
+          addLog(`✓ ${r.name} (${r.unit}) — 🇲🇽 ES sent`, 'ok');
+        } else {
+          addLog(`✓ ${r.name} (${r.unit}) [${langLabel}]`, 'ok');
+        }
+      } else {
+        failed++;
+        addLog(`✗ ${r.name} — no answer`, 'err');
+      }
+      i++;
+      const pct=Math.round((i/total)*100);
+      document.getElementById('progFill').style.width=pct+'%';
+      document.getElementById('progPct').textContent=pct+'%';
+    }, Math.max(60, 1200/total));
+  });
+}
+
+function addLog(msg, cls=''){
+  const log=document.getElementById('liveLog');
+  const now=new Date().toTimeString().slice(0,8);
+  const line=document.createElement('div'); line.className='log-line';
+  line.innerHTML=`<span class="log-time">${now}</span><span class="log-msg ${cls}"> ${msg}</span>`;
+  log.appendChild(line); log.scrollTop=log.scrollHeight;
+}
+
+// ── FILE UPLOAD ──
+function handleFile(input){ const f=input.files[0]; if(f) parseFile(f); }
+function dragOver(e){ e.preventDefault(); document.querySelector('.upload-zone').classList.add('drag'); }
+function dragLeave(){ document.querySelector('.upload-zone').classList.remove('drag'); }
+function dropFile(e){ e.preventDefault(); dragLeave(); const f=e.dataTransfer.files[0]; if(f) parseFile(f); }
+
+function parseFile(file){
+  const reader=new FileReader();
+  const isCSV=file.name.toLowerCase().endsWith('.csv');
+  reader.onload=e=>{
+    try{
+      let parsed=[];
+      if(isCSV){
+        const lines=e.target.result.split('\n').filter(l=>l.trim());
+        const hdrs=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/"/g,''));
+        const ni=hdrs.findIndex(h=>h.includes('name'));
+        const ui=hdrs.findIndex(h=>h.includes('unit')||h.includes('apt'));
+        const pi=hdrs.findIndex(h=>h.includes('phone')||h.includes('cell'));
+        const ei=hdrs.findIndex(h=>h.includes('email'));
+        for(let i=1;i<lines.length;i++){
+          const cols=lines[i].split(',').map(c=>c.trim().replace(/"/g,''));
+          if(!cols[ni]) continue;
+          parsed.push({id:Date.now()+i,name:cols[ni]||'',unit:cols[ui]||'',phone:fmtPhone(cols[pi]||''),email:cols[ei]||''});
+        }
+      } else {
+        const wb=XLSX.read(e.target.result,{type:'binary'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+        data.forEach((row,i)=>{
+          const get=terms=>{ for(const t of terms){ const k=Object.keys(row).find(k=>k.toLowerCase().includes(t)); if(k) return String(row[k]||''); } return ''; };
+          parsed.push({id:Date.now()+i, name:get(['name','resident','tenant']), unit:get(['unit','apt','suite','room']), phone:fmtPhone(get(['phone','cell','mobile','tel'])), email:get(['email','mail'])});
+        });
+      }
+      parsed=parsed.filter(r=>r.name||r.phone);
+      if(!parsed.length){ toast('No valid data found. Check column headers.','err'); return; }
+      residents=parsed; renderResidents(); updateBadges();
+      document.getElementById('uploadZone').style.display='none';
+      document.getElementById('tableWrap').style.display='block';
+      document.getElementById('warnCt').textContent=residents.length;
+      toast(`✓ Imported ${parsed.length} residents!`,'ok');
+      saveResidentsToCloud();
+    }catch(err){ toast('Error: '+err.message,'err'); }
+  };
+  if(isCSV) reader.readAsText(file); else reader.readAsBinaryString(file);
+}
+
+function fmtPhone(p){ if(!p) return ''; const d=p.replace(/\D/g,''); if(d.length===10) return `+1${d}`; if(d.length===11&&d[0]==='1') return `+${d}`; return p; }
+
+// ── RESIDENTS ──
+function renderResidents(){
+  const tbody=document.getElementById('resTbody');
+  const total=residents.length;
+  const selected=residents.filter(r=>r.selected).length;
+  document.getElementById('resCt').textContent=
+    selected>0 ? `${selected} of ${total} selected` : `${total} residents`;
+  updateBadges();
+
+  if(!total){ tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--gray)">No residents yet.</td></tr>`; return; }
+  tbody.innerHTML=residents.map(r=>`
+    <tr style="${r.selected?'background:var(--blue-dim)':''}">
+      <td><input type="checkbox" data-id="${r.id}" ${r.selected?'checked':''} onchange="toggleRes('${r.id}',this.checked)"></td>
+      <td style="font-weight:500">${r.name||'—'}</td>
+      <td style="color:var(--gray);font-size:.76rem">${r.property||'—'}</td>
+      <td style="color:var(--gray)">${r.unit||'—'}</td>
+      <td style="font-family:monospace;font-size:.76rem;color:var(--gray)">${r.phone||'—'}</td>
+      <td style="color:var(--gray);font-size:.76rem">${r.email||'—'}</td>
+      <td><div style="display:flex;gap:4px;justify-content:flex-end">
+        <button class="icon-btn" onclick="openEditRes('${r.id}')" title="Edit">✏️</button>
+        <button class="icon-btn danger" onclick="delRes('${r.id}')">🗑</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function toggleRes(id, checked){
+  const r = residents.find(x=>String(x.id)===String(id));
+  if(r) r.selected = checked;
+  renderResidents();
+  updateSendBtn();
+}
+
+function updateSendBtn(){
+  const selected = residents.filter(r=>r.selected);
+  const count = selected.length > 0 ? selected.length : residents.length;
+  document.getElementById('warnCt').textContent = count;
+}
+
+function filterRes(q){
+  const lq=q.toLowerCase();
+  const filtered=q?residents.filter(r=>(r.name+r.unit+r.phone+(r.property||'')).toLowerCase().includes(lq)):residents;
+  const tbody=document.getElementById('resTbody');
+  tbody.innerHTML=filtered.map(r=>`
+    <tr style="${r.selected?'background:var(--blue-dim)':''}">
+      <td><input type="checkbox" data-id="${r.id}" ${r.selected?'checked':''} onchange="toggleRes('${r.id}',this.checked)"></td>
+      <td style="font-weight:500">${r.name||'—'}</td>
+      <td style="color:var(--gray);font-size:.76rem">${r.property||'—'}</td>
+      <td style="color:var(--gray)">${r.unit||'—'}</td>
+      <td style="font-family:monospace;font-size:.76rem;color:var(--gray)">${r.phone||'—'}</td>
+      <td style="color:var(--gray);font-size:.76rem">${r.email||'—'}</td>
+      <td><div style="display:flex;gap:4px;justify-content:flex-end">
+        <button class="icon-btn" onclick="openEditRes('${r.id}')" title="Edit">✏️</button>
+        <button class="icon-btn danger" onclick="delRes('${r.id}')">🗑</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function delRes(id){ residents=residents.filter(r=>String(r.id)!==String(id)); renderResidents(); updateBadges(); toast('Removed','ok'); saveResidentsToCloud(); }
+function clearRes(){ if(residents.length&&confirm(`Clear all ${residents.length} residents?`)){ residents=[]; renderResidents(); updateBadges(); document.getElementById('uploadZone').style.display='block'; document.getElementById('tableWrap').style.display='none'; toast('Cleared','ok'); } }
+
+function openEditRes(id){
+  const r = residents.find(x=>String(x.id)===String(id));
+  if(!r) return;
+  document.getElementById('e-id').value = r.id;
+  document.getElementById('e-name').value = r.name || '';
+  document.getElementById('e-property').value = r.property || '';
+  document.getElementById('e-unit').value = r.unit || '';
+  document.getElementById('e-phone').value = r.phone || '';
+  document.getElementById('e-email').value = r.email || '';
+  document.getElementById('editResOverlay').classList.add('show');
+}
+
+function closeEditRes(e){ if(!e||e.target===document.getElementById('editResOverlay')) document.getElementById('editResOverlay').classList.remove('show'); }
+
+function saveEditRes(){
+  const id = document.getElementById('e-id').value;
+  const name = document.getElementById('e-name').value.trim();
+  const property = document.getElementById('e-property').value.trim();
+  const unit = document.getElementById('e-unit').value.trim();
+  const phone = fmtPhone(document.getElementById('e-phone').value.trim());
+  const email = document.getElementById('e-email').value.trim();
+  if(!name||!unit||!phone){ toast('Name, unit, and phone required','err'); return; }
+  const r = residents.find(x=>String(x.id)===String(id));
+  if(r){ r.name=name; r.property=property; r.unit=unit; r.phone=phone; r.email=email; }
+  closeEditRes(); renderResidents(); updateBadges();
+  toast('Resident updated','ok');
+  saveResidentsToCloud();
+}
+function selAll(cb){
+  residents.forEach(r=>r.selected=cb.checked);
+  renderResidents();
+  updateSendBtn();
+}
+
+function exportResCSV(){
+  if(!residents.length){ toast('No residents','err'); return; }
+  const rows=[['Name','Unit','Phone','Email'],...residents.map(r=>[r.name,r.unit,r.phone,r.email])];
+  const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='residents.csv'; a.click(); toast('Exported','ok');
+}
+
+// ── ADD RESIDENT MODAL ──
+function openAddRes(){ document.getElementById('addResOverlay').classList.add('show'); }
+function closeAddRes(e){ if(!e||e.target===document.getElementById('addResOverlay')) document.getElementById('addResOverlay').classList.remove('show'); }
+function addResident(){
+  const name=document.getElementById('r-name').value.trim();
+  const property=document.getElementById('r-property').value.trim();
+  const unit=document.getElementById('r-unit').value.trim();
+  const phone=fmtPhone(document.getElementById('r-phone').value.trim());
+  const email=document.getElementById('r-email').value.trim();
+  if(!name||!unit||!phone){ toast('Name, unit, and phone required','err'); return; }
+  residents.push({id:Date.now(),name,property,unit,phone,email});
+  closeAddRes(); renderResidents(); updateBadges();
+  document.getElementById('warnCt').textContent=residents.length;
+  ['r-name','r-property','r-unit','r-phone','r-email'].forEach(id=>document.getElementById(id).value='');
+  if(residents.length===1){ document.getElementById('uploadZone').style.display='none'; document.getElementById('tableWrap').style.display='block'; }
+  toast('Resident added','ok');
+  saveResidentsToCloud();
+}
+
+// ── HISTORY ──
+function renderHistory(){
+  const body=document.getElementById('histBody');
+  document.getElementById('histBadge').textContent=alertHistory.length;
+  if(!alertHistory.length){ body.innerHTML=`<div style="text-align:center;padding:50px;color:var(--gray)"><div style="font-size:2.5rem;margin-bottom:10px">📭</div><div>No alerts sent yet.</div></div>`; return; }
+  const langLabel = {en:'🇺🇸 English', es:'🇲🇽 Spanish', both:'🌐 EN + ES'};
+  body.innerHTML=alertHistory.map(h=>`
+    <div class="hist-card">
+      <div class="hc-top">
+        <div class="hc-badge ${h.type}">${typeEmoji[h.type]||'📢'} ${h.typeName}</div>
+        <div class="hc-info">
+          <div class="hc-title">${h.property} <span style="font-size:.7rem;font-weight:500;color:var(--gray);margin-left:6px">${langLabel[h.language||'en']||'🇺🇸 English'}</span></div>
+          <div class="hc-meta">${new Date(h.date).toLocaleString()} · ${h.channels?.call?'📞 ':''} ${h.channels?.sms?'💬':''}</div>
+          <div class="hc-msg">${h.message.slice(0,140)}...</div>
+        </div>
+      </div>
+      <div class="hc-stats">
+        <div class="hc-stat"><div class="n">${h.total}</div><div class="l">Total</div></div>
+        <div class="hc-stat ok"><div class="n">${h.sent}</div><div class="l">Reached</div></div>
+        <div class="hc-stat bad"><div class="n">${h.failed}</div><div class="l">Failed</div></div>
+        <div class="hc-stat"><div class="n">${h.total>0?Math.round((h.sent/h.total)*100):0}%</div><div class="l">Success</div></div>
+      </div>
+    </div>`).join('');
+}
+
+function exportHist(){
+  if(!alertHistory.length){ toast('No history','err'); return; }
+  const a=document.createElement('a'); a.href='data:text/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(alertHistory,null,2));
+  a.download='alert-history.json'; a.click(); toast('Exported','ok');
+}
+
+// ── MY TEAM ──
+let teamManagers = JSON.parse(localStorage.getItem('residial_team') || '[]');
+// [{id, name, email, phone, title, locations:[{id,name,address,doors}]}]
+
+function saveTeam(){ localStorage.setItem('residial_team', JSON.stringify(teamManagers)); }
+
+function renderTeam(){
+  const co = settings.company || 'Your Company';
+  const el = document.getElementById('teamCoName');
+  const sub = document.getElementById('teamCoSub');
+  if(el) el.textContent = co;
+  if(sub) sub.textContent = settings.email || 'Set your email in Settings';
+
+  const list = document.getElementById('teamManagersList');
+  if(!list) return;
+  if(!teamManagers.length){
+    list.innerHTML=`<div style="text-align:center;padding:50px 20px;color:var(--gray)"><div style="font-size:2.5rem;margin-bottom:10px">👥</div><div>No managers yet. Click "+ Add Manager" to get started.</div></div>`;
+    return;
+  }
+  list.innerHTML = teamManagers.map(mgr=>`
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden">
+      <div style="padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="width:38px;height:38px;border-radius:50%;background:var(--blue-dim);border:1px solid var(--blue-border);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">👤</div>
+        <div style="flex:1">
+          <div style="font-weight:700">${mgr.name}</div>
+          <div style="font-size:.78rem;color:var(--gray)">${mgr.title||'Property Manager'} · ${mgr.email}${mgr.phone?' · '+mgr.phone:''}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="openAddLocModal('${mgr.id}')" class="btn btn-ghost" style="font-size:.78rem;padding:5px 12px">+ Location</button>
+          <button onclick="openEditMgrModal('${mgr.id}')" class="btn btn-ghost" style="font-size:.78rem;padding:5px 10px">✏️</button>
+          <button onclick="deleteTeamMgr('${mgr.id}')" class="btn btn-ghost" style="font-size:.78rem;padding:5px 10px;color:var(--red)">🗑</button>
+        </div>
+      </div>
+      ${(mgr.locations||[]).length===0
+        ? `<div style="border-top:1px solid var(--border);padding:12px 18px;font-size:.8rem;color:var(--gray);font-style:italic">No locations assigned yet.</div>`
+        : `<div style="border-top:1px solid var(--border);padding:12px 18px;display:flex;flex-wrap:wrap;gap:8px">
+            ${mgr.locations.map(loc=>`
+              <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:.8rem;display:flex;align-items:center;gap:10px">
+                <div>
+                  <div style="font-weight:600">📍 ${loc.name}</div>
+                  ${loc.address?`<div style="color:var(--gray);font-size:.72rem">${loc.address}${loc.doors?' · '+loc.doors+' units':''}</div>`:''}
+                </div>
+                <button onclick="deleteTeamLoc('${mgr.id}','${loc.id}')" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:.9rem;padding:0">✕</button>
+              </div>`).join('')}
+          </div>`
+      }
+    </div>`).join('');
+}
+
+// Manager modal
+function openAddMgrModal(){
+  document.getElementById('tm-id').value='';
+  ['tm-name','tm-email','tm-password','tm-phone','tm-title'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('addMgrOverlay').classList.add('show');
+}
+function openEditMgrModal(id){
+  const m=teamManagers.find(x=>x.id===id); if(!m) return;
+  document.getElementById('tm-id').value=m.id;
+  document.getElementById('tm-name').value=m.name||'';
+  document.getElementById('tm-email').value=m.email||'';
+  document.getElementById('tm-password').value='';
+  document.getElementById('tm-phone').value=m.phone||'';
+  document.getElementById('tm-title').value=m.title||'';
+  document.getElementById('addMgrOverlay').classList.add('show');
+}
+function closeAddMgr(e){ if(!e||e.target===document.getElementById('addMgrOverlay')) document.getElementById('addMgrOverlay').classList.remove('show'); }
+function saveTeamManager(){
+  const id=document.getElementById('tm-id').value;
+  const name=document.getElementById('tm-name').value.trim();
+  const email=document.getElementById('tm-email').value.trim();
+  const phone=document.getElementById('tm-phone').value.trim();
+  const title=document.getElementById('tm-title').value.trim();
+  const password=document.getElementById('tm-password')?.value.trim();
+  if(!name||!email){ toast('Name and email required','err'); return; }
+
+  // Save to team list
+  if(id){
+    const m=teamManagers.find(x=>x.id===id);
+    if(m){ m.name=name; m.email=email; m.phone=phone; m.title=title; }
+  } else {
+    teamManagers.push({id:Date.now().toString(),name,email,phone,title,locations:[]});
+  }
+  saveTeam();
+
+  // Save login account
+  if(email && password){
+    const accounts = getManagerAccounts();
+    const company = settings.company || '';
+    const existing = accounts.find(a=>a.email.toLowerCase()===email.toLowerCase());
+    if(existing){ existing.name=name; existing.password=password; existing.company=company; }
+    else { accounts.push({id:Date.now().toString(),name,email,phone,title,password,company}); }
+    localStorage.setItem('residial_manager_accounts', JSON.stringify(accounts));
+    toast('Manager saved with login credentials','ok');
+  } else {
+    toast('Manager saved','ok');
+  }
+
+  renderTeam(); closeAddMgr();
+}
+function deleteTeamMgr(id){
+  if(!confirm('Remove this manager?')) return;
+  teamManagers=teamManagers.filter(m=>m.id!==id); saveTeam(); renderTeam();
+}
+
+// Location modal
+function openAddLocModal(mgrId){
+  document.getElementById('tl-mgr-id').value=mgrId;
+  ['tl-name','tl-address','tl-doors'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('addLocOverlay').classList.add('show');
+}
+function closeAddLoc(e){ if(!e||e.target===document.getElementById('addLocOverlay')) document.getElementById('addLocOverlay').classList.remove('show'); }
+function saveTeamLocation(){
+  const mgrId=document.getElementById('tl-mgr-id').value;
+  const name=document.getElementById('tl-name').value.trim();
+  const address=document.getElementById('tl-address').value.trim();
+  const doors=document.getElementById('tl-doors').value.trim();
+  if(!name){ toast('Property name required','err'); return; }
+  const m=teamManagers.find(x=>x.id===mgrId); if(!m) return;
+  m.locations.push({id:Date.now().toString(),name,address,doors});
+  saveTeam(); renderTeam(); closeAddLoc(); toast('Location added','ok');
+}
+function deleteTeamLoc(mgrId,locId){
+  const m=teamManagers.find(x=>x.id===mgrId); if(!m) return;
+  m.locations=m.locations.filter(l=>l.id!==locId); saveTeam(); renderTeam();
+}
+
+// ── ACCOUNTING REPORT ──
+const propCharges = {}; // stores per-property client charge amounts
+
+function setAcctCurrentMonth(){
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const fmt = d => d.toISOString().split('T')[0];
+  const f = document.getElementById('acct-from');
+  const t = document.getElementById('acct-to');
+  if(f) f.value = fmt(new Date(y, m, 1));
+  if(t) t.value = fmt(new Date(y, m+1, 0));
+}
+
+function getAcctData(){
+  const fromVal = document.getElementById('acct-from').value;
+  const toVal = document.getElementById('acct-to').value;
+  const from = fromVal ? new Date(fromVal) : new Date(0);
+  const to = toVal ? new Date(toVal+'T23:59:59') : new Date();
+  const mgr = JSON.parse(localStorage.getItem('residial_current_manager') || 'null');
+  const company = mgr ? mgr.company : (settings.company || 'Your Company');
+  const mgrName = mgr ? mgr.name : (settings.name || 'Property Manager');
+  const plan = settings.plan || 'Starter';
+
+  const filtered = alertHistory.filter(h => { const d=new Date(h.date); return d>=from && d<=to; });
+  const byProp = {};
+  filtered.forEach(h => {
+    const prop = h.property || 'Unassigned';
+    if(!byProp[prop]) byProp[prop]={alerts:0,residents:0,sms:0,calls:0,events:[]};
+    byProp[prop].alerts++;
+    byProp[prop].residents += (h.total||0);
+    byProp[prop].sms += h.channels?.sms ? (h.total||0) : 0;
+    byProp[prop].calls += h.channels?.call ? (h.total||0) : 0;
+    byProp[prop].events.push(h);
+  });
+
+  const dateLabel = fromVal && toVal
+    ? `${new Date(fromVal).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} – ${new Date(toVal).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`
+    : 'All Time';
+
+  return { from, to, fromVal, toVal, company, mgrName, plan, filtered, byProp, dateLabel,
+    totalAlerts: filtered.length,
+    totalResidents: filtered.reduce((s,h)=>s+(h.total||0),0),
+    totalSMS: filtered.filter(h=>h.channels?.sms).reduce((s,h)=>s+(h.total||0),0),
+    totalCalls: filtered.filter(h=>h.channels?.call).reduce((s,h)=>s+(h.total||0),0),
+  };
+}
+
+function renderAccounting(){
+  const d = getAcctData();
+  const el = document.getElementById('acctReport');
+  const totalCharge = Object.entries(d.byProp).reduce((s,[p])=>s+(parseFloat(propCharges[p])||0),0);
+
+  el.innerHTML = `
+    <div id="acctPrintArea">
+
+      <!-- Header -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px">
+          <div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;margin-bottom:4px">Residial Alert Report</div>
+            <div style="font-size:.88rem;color:var(--white);font-weight:600">${d.company}</div>
+            <div style="font-size:.8rem;color:var(--gray)">Prepared by: ${d.mgrName}</div>
+            <div style="font-size:.8rem;color:var(--gray)">Billing Period: ${d.dateLabel}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="background:var(--blue-dim);border:1px solid var(--blue-border);border-radius:8px;padding:10px 16px;display:inline-block">
+              <div style="font-size:.7rem;color:var(--gray);text-transform:uppercase;letter-spacing:.06em">Residial Plan</div>
+              <div style="font-size:1.1rem;font-weight:700;color:var(--sky);text-transform:capitalize">${d.plan}</div>
+              <div style="font-size:.72rem;color:var(--gray)">Flat monthly subscription</div>
+            </div>
+            <div style="font-size:.72rem;color:var(--gray);margin-top:8px">Generated: ${new Date().toLocaleString()}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary stats -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+        ${[['📢','Total Alerts',d.totalAlerts,'var(--blue)'],['👥','Residents Notified',d.totalResidents,'var(--green)'],['💬','SMS Sent',d.totalSMS,'var(--sky)'],['📞','Calls Made',d.totalCalls,'var(--amber)']].map(([icon,label,val,color])=>`
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center">
+            <div style="font-size:1.5rem">${icon}</div>
+            <div style="font-size:1.5rem;font-weight:700;color:${color}">${val}</div>
+            <div style="font-size:.73rem;color:var(--gray);margin-top:2px">${label}</div>
+          </div>`).join('')}
+      </div>
+
+      <!-- Per-property blocks -->
+      ${Object.keys(d.byProp).length===0
+        ? `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:40px;text-align:center;color:var(--gray)">No alerts found for this period.</div>`
+        : Object.entries(d.byProp).map(([prop, data])=>`
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden">
+            <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+              <div>
+                <div style="font-weight:700;font-size:.95rem">📍 ${prop}</div>
+                <div style="font-size:.78rem;color:var(--gray);margin-top:2px">
+                  ${data.alerts} alert${data.alerts!==1?'s':''}
+                  · ${data.residents} notified
+                  ${data.sms?` · 💬 ${data.sms} SMS`:''}
+                  ${data.calls?` · 📞 ${data.calls} calls`:''}
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <label style="font-size:.75rem;color:var(--gray);white-space:nowrap">Client Charge:</label>
+                <div style="display:flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px">
+                  <span style="color:var(--gray)">$</span>
+                  <input type="number" min="0" step="0.01" placeholder="0.00"
+                    value="${propCharges[prop]||''}"
+                    onchange="propCharges['${prop}']=this.value; renderAccounting()"
+                    style="background:none;border:none;color:var(--white);width:80px;outline:none;font-family:'DM Sans',sans-serif;font-size:.88rem">
+                </div>
+              </div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;font-size:.81rem">
+              <thead><tr style="border-bottom:1px solid var(--border)">
+                <th style="padding:8px 20px;text-align:left;color:var(--gray);font-weight:600">Date & Time</th>
+                <th style="padding:8px;text-align:left;color:var(--gray);font-weight:600">Alert Type</th>
+                <th style="padding:8px;text-align:left;color:var(--gray);font-weight:600">Channel</th>
+                <th style="padding:8px;text-align:right;color:var(--gray);font-weight:600">Residents</th>
+                <th style="padding:8px 20px;text-align:right;color:var(--gray);font-weight:600">Result</th>
+              </tr></thead>
+              <tbody>
+                ${data.events.map(h=>`
+                  <tr style="border-bottom:1px solid var(--border)">
+                    <td style="padding:9px 20px;color:var(--gray)">${new Date(h.date).toLocaleString()}</td>
+                    <td style="padding:9px 8px;font-weight:500">${typeEmoji[h.type]||'📢'} ${h.typeName||h.type}</td>
+                    <td style="padding:9px 8px;color:var(--gray)">${h.channels?.sms&&h.channels?.call?'SMS + Call':h.channels?.sms?'SMS':h.channels?.call?'Call':'—'}</td>
+                    <td style="padding:9px 8px;text-align:right">${h.total||0}</td>
+                    <td style="padding:9px 20px;text-align:right"><span style="color:${h.failed?'var(--amber)':'var(--green)'}">✓ ${h.sent||0}${h.failed?' / '+h.failed+' failed':''}</span></td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`).join('')}
+
+      <!-- Billing summary -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-top:4px">
+        <div style="font-weight:700;margin-bottom:12px">💰 Billing Summary</div>
+        <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+          <thead><tr style="border-bottom:1px solid var(--border)">
+            <th style="padding:6px 0;text-align:left;color:var(--gray);font-weight:600">Property</th>
+            <th style="padding:6px 0;text-align:right;color:var(--gray);font-weight:600">Alerts</th>
+            <th style="padding:6px 0;text-align:right;color:var(--gray);font-weight:600">Residents</th>
+            <th style="padding:6px 0;text-align:right;color:var(--gray);font-weight:600">Client Charge</th>
+          </tr></thead>
+          <tbody>
+            ${Object.entries(d.byProp).map(([prop,data])=>`
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:8px 0;font-weight:500">📍 ${prop}</td>
+                <td style="padding:8px 0;text-align:right;color:var(--gray)">${data.alerts}</td>
+                <td style="padding:8px 0;text-align:right;color:var(--gray)">${data.residents}</td>
+                <td style="padding:8px 0;text-align:right;font-weight:600;color:var(--green)">${propCharges[prop]?'$'+parseFloat(propCharges[prop]).toFixed(2):'—'}</td>
+              </tr>`).join('')}
+            <tr>
+              <td style="padding:10px 0;font-weight:700" colspan="3">Total Due from Clients</td>
+              <td style="padding:10px 0;text-align:right;font-size:1.1rem;font-weight:700;color:var(--green)">${totalCharge>0?'$'+totalCharge.toFixed(2):'—'}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top:14px;font-size:.78rem;color:var(--gray);border-top:1px solid var(--border);padding-top:12px">
+          <strong style="color:var(--white)">Note:</strong> Residial is billed separately to ${d.company} as a flat ${d.plan} plan subscription. The amounts above reflect charges to your individual property clients for emergency alert services during this billing period.
+        </div>
+      </div>
+
+    </div>`;
+}
+
+function printAccounting(){
+  window.print();
+}
+
+function exportAcctCSV(){
+  const d = getAcctData();
+  if(!d.filtered.length){ toast('No data to export','err'); return; }
+  const rows = [['Date','Property','Alert Type','Channel','Residents Notified','Sent','Failed','Client Charge']];
+  Object.entries(d.byProp).forEach(([prop, data])=>{
+    data.events.forEach(h=>{
+      rows.push([
+        new Date(h.date).toLocaleString(),
+        prop,
+        h.typeName||h.type,
+        h.channels?.sms&&h.channels?.call?'SMS+Call':h.channels?.sms?'SMS':h.channels?.call?'Call':'—',
+        h.total||0,
+        h.sent||0,
+        h.failed||0,
+        propCharges[prop]?'$'+parseFloat(propCharges[prop]).toFixed(2):'—'
+      ]);
+    });
+    rows.push(['','SUBTOTAL: '+prop,'','',data.residents,'','',propCharges[prop]?'$'+parseFloat(propCharges[prop]).toFixed(2):'—']);
+  });
+  const csv = rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `residial-report-${d.fromVal||'all'}.csv`;
+  a.click();
+  toast('CSV downloaded','ok');
+}
+
+function emailAcctReport(){
+  const d = getAcctData();
+  const acctEmail = document.getElementById('acct-email').value.trim();
+  if(!acctEmail){ toast('Enter an accounting email address first','err'); return; }
+  const totalCharge = Object.entries(d.byProp).reduce((s,[p])=>s+(parseFloat(propCharges[p])||0),0);
+  const body = encodeURIComponent(
+    `Residial Alert Report — ${d.dateLabel}\n` +
+    `Company: ${d.company}\n` +
+    `Prepared by: ${d.mgrName}\n` +
+    `Plan: ${d.plan} (flat monthly subscription)\n\n` +
+    `SUMMARY\n` +
+    `Total Alerts: ${d.totalAlerts}\n` +
+    `Residents Notified: ${d.totalResidents}\n` +
+    `SMS Sent: ${d.totalSMS}\n` +
+    `Calls Made: ${d.totalCalls}\n\n` +
+    `BILLING BY PROPERTY\n` +
+    Object.entries(d.byProp).map(([prop,data])=>
+      `${prop}: ${data.alerts} alerts, ${data.residents} residents${propCharges[prop]?' — Client charge: $'+parseFloat(propCharges[prop]).toFixed(2):''}`
+    ).join('\n') +
+    `\n\nTotal Client Charges: ${totalCharge>0?'$'+totalCharge.toFixed(2):'Not set'}\n\n` +
+    `Generated by Residial — residial.net`
+  );
+  const subject = encodeURIComponent(`Residial Alert Report — ${d.company} — ${d.dateLabel}`);
+  window.open(`mailto:${acctEmail}?subject=${subject}&body=${body}`);
+  toast('Opening email client...','ok');
+}
+
+// ── SETTINGS ──
+function updateMsgPreview(){
+  const co = document.getElementById('s-co').value.trim();
+  const name = document.getElementById('s-name').value.trim();
+  const el = document.getElementById('msgPreview');
+  if(!el) return;
+  if(!co){ el.textContent = 'Fill in your company name above to see a preview.'; return; }
+  const from = co;
+  el.textContent = `"Hi Sarah! This is a message from ${from} regarding Maple Grove, Unit 4B. Water intrusion has been detected. If you are in a lower-level unit, move to higher floors immediately..."`;
+}
+
+function loadSettings(){
+  if(settings.company) document.getElementById('s-co').value=settings.company;
+  if(settings.name) document.getElementById('s-name').value=settings.name;
+  if(settings.email) document.getElementById('s-email').value=settings.email;
+  if(settings.doors) document.getElementById('s-doors').value=settings.doors;
+  if(settings.accountSid) document.getElementById('s-sid').value=settings.accountSid;
+  if(settings.authToken) document.getElementById('s-token').value=settings.authToken;
+  if(settings.fromPhone) document.getElementById('s-from').value=settings.fromPhone;
+  if(settings.backendUrl) document.getElementById('s-backend').value=settings.backendUrl;
+  updateMsgPreview();
+}
+
+function saveSettings(){
+  settings={
+    company:document.getElementById('s-co').value,
+    name:document.getElementById('s-name').value,
+    email:document.getElementById('s-email').value,
+    doors:document.getElementById('s-doors').value,
+    accountSid:document.getElementById('s-sid').value,
+    authToken:document.getElementById('s-token').value,
+    fromPhone:document.getElementById('s-from').value,
+    backendUrl:document.getElementById('s-backend').value,
+  };
+  localStorage.setItem('pm_settings',JSON.stringify(settings));
+  const hasCreds=settings.accountSid&&settings.authToken&&settings.fromPhone;
+  document.getElementById('sysStatus').className='status-pill '+(hasCreds?'ready':'warn');
+  document.getElementById('sysStatus').innerHTML=hasCreds?'<div class="pulse g"></div>Ready':'<div class="pulse a"></div>Configure API';
+  updatePlanDisplay();
+  toast('Settings saved!','ok');
+  if(getAccountEmail() && !residents.length) loadResidentsFromCloud();
+}
+
+// ── BADGES ──
+function updateBadges(){
+  document.getElementById('resBadge').textContent=residents.length;
+  document.getElementById('histBadge').textContent=alertHistory.length;
+  const selected = residents.filter(r=>r.selected);
+  const count = selected.length > 0 ? selected.length : residents.length;
+  document.getElementById('warnCt').textContent=count;
+}
+
+// ── TOAST ──
+function subscribe(){
+  const email = settings.email || '';
+  const doors = settings.doors || 0;
+  const fname = (settings.name||'').split(' ')[0];
+  const lname = (settings.name||'').split(' ').slice(1).join(' ');
+  const company = settings.company || '';
+
+  if(!email){ toast('Please add your email in Settings first','err'); showPage('settings'); return; }
+
+  fetch('https://residial-server.onrender.com/api/create-checkout', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({email, fname, lname, company, doors})
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    if(data.url) window.location.href = data.url;
+    else toast('Error: ' + (data.error||'Unknown error'),'err');
+  })
+  .catch(err=>toast('Connection error','err'));
+}
+
+function updatePlanDisplay(){
+  const doors = parseInt(settings.doors) || 0;
+  let planName, price;
+  if(doors <= 50){ planName='Starter Plan'; price='$49/mo'; }
+  else if(doors <= 500){ planName='Pro Plan'; price='$'+(doors*1.75).toFixed(0)+'/mo'; }
+  else { planName='Enterprise Plan'; price='$'+(doors*1.50).toFixed(0)+'/mo'; }
+  document.getElementById('planName').textContent = planName;
+  document.getElementById('planDoors').textContent = doors + ' doors · $' + (doors<=50?'2.50':doors<=500?'1.75':'1.50') + '/door';
+  document.getElementById('planPrice').textContent = price;
+}
+
+
+// ── RESIDENT CLOUD SYNC ──
+const API = 'https://residial-server.onrender.com';
+
+function getAccountEmail(){
+  return settings.email || localStorage.getItem('residial_email') || null;
+}
+
+function getCurrentProperty(){
+  const sel = document.getElementById('propertySelect');
+  return (sel && sel.value) || settings.company || 'default';
+}
+
+async function saveResidentsToCloud(){
+  const email = getAccountEmail();
+  if(!email || !residents.length) return;
+  try {
+    const res = await fetch(API + '/api/residents/save', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email, property: getCurrentProperty(), residents })
+    });
+    const data = await res.json();
+    if(data.success) console.log('[CLOUD] Residents saved:', data.count);
+  } catch(err) {
+    console.error('[CLOUD SAVE ERROR]', err.message);
+  }
+}
+
+async function loadResidentsFromCloud(){
+  const email = getAccountEmail();
+  if(!email) return;
+  try {
+    addLog('Loading your residents...', 'info');
+    const res = await fetch(API + '/api/residents/load?email=' + encodeURIComponent(email) + '&property=' + encodeURIComponent(getCurrentProperty()));
+    const data = await res.json();
+    if(data.residents && data.residents.length > 0){
+      residents = data.residents;
+      renderResidents();
+      updateBadges();
+      document.getElementById('uploadZone').style.display = 'none';
+      document.getElementById('tableWrap').style.display = 'block';
+      document.getElementById('warnCt').textContent = residents.length;
+      addLog(`✓ Loaded ${residents.length} residents from your account`, 'ok');
+      toast('Residents loaded from your account ☁️', 'ok');
+    } else {
+      addLog('No saved residents found. Upload a spreadsheet to get started.', 'info');
+    }
+  } catch(err) {
+    addLog('Could not load residents. Check your connection.', 'err');
+  }
+}
+
+function toast(msg,type='ok'){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');t.className=`toast ${type}`;
+  t.innerHTML=(type==='ok'?'✅':'❌')+' '+msg;
+  w.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300);},3000);
+}
+
+// ── PWA SERVICE WORKER & INSTALL ──
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/sw.js').then(() => console.log('[SW] Registered')).catch(err => console.log('[SW] Error:', err));
+}
+
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show install banner after 30 seconds
+  setTimeout(() => {
+    if(!localStorage.getItem('pwa_dismissed')) {
+      document.getElementById('installBanner').classList.add('show');
+    }
+  }, 30000);
+});
+
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if(deferredPrompt) {
+    deferredPrompt.prompt();
+    const result = await deferredPrompt.userChoice;
+    if(result.outcome === 'accepted') toast('App installed! 🎉', 'ok');
+    deferredPrompt = null;
+    document.getElementById('installBanner').classList.remove('show');
+  } else {
+    // iOS instructions
+    toast('On iPhone: tap Share → Add to Home Screen', 'ok');
+    document.getElementById('installBanner').classList.remove('show');
+  }
+});
+
+function dismissInstall(){
+  document.getElementById('installBanner').classList.remove('show');
+  localStorage.setItem('pwa_dismissed', '1');
+}
+
+window.addEventListener('appinstalled', () => {
+  toast('Residial installed successfully! 🎉', 'ok');
+});
+
+</script>
+
+<!-- PWA INSTALL BANNER -->
+<div class="install-banner" id="installBanner">
+  <div class="install-banner-icon">📱</div>
+  <div class="install-banner-text">
+    <div class="install-banner-title">Add Residial to your home screen</div>
+    <div class="install-banner-sub">Send alerts from your phone in seconds</div>
+  </div>
+  <button class="install-banner-btn" id="installBtn">Install</button>
+  <button class="install-banner-close" onclick="dismissInstall()">✕</button>
+</div>
+
+</body>
+</html>

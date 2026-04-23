@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Residial — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a1628;--surface:#111f35;--surface2:#162540;
+  --blue:#1a6fff;--blue-dim:rgba(26,111,255,.12);--blue-border:rgba(26,111,255,.3);
+  --sky:#4d92ff;--white:#f0f6ff;--gray:#6b85a3;--gray2:#4a6080;
+  --green:#27c97a;--green-dim:rgba(39,201,122,.1);--green-border:rgba(39,201,122,.3);
+  --red:#e84040;--red-dim:rgba(232,64,64,.1);--red-border:rgba(232,64,64,.3);
+  --amber:#f5a623;--amber-dim:rgba(245,166,35,.1);--amber-border:rgba(245,166,35,.3);
+  --border:rgba(255,255,255,.07);--radius:12px;--radius-sm:8px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--white);min-height:100vh}
+
+#loginScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:20px}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:32px;width:320px;display:flex;flex-direction:column;gap:14px}
+.login-input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:.9rem;outline:none;width:100%}
+.login-btn{background:var(--blue);border:none;border-radius:var(--radius-sm);padding:11px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:600;cursor:pointer}
+.login-btn:hover{opacity:.9}
+
+#adminShell{display:none}
+.topbar{display:flex;align-items:center;padding:0 24px;height:52px;background:var(--surface);border-bottom:1px solid var(--border);gap:14px}
+.logo{font-family:'DM Serif Display',serif;font-size:1.3rem;color:var(--white)}
+.logo span{color:var(--sky)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.badge{background:var(--green-dim);border:1px solid var(--green-border);color:var(--green);padding:3px 10px;border-radius:100px;font-size:.7rem;font-weight:600}
+.signout-btn{background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 12px;color:var(--gray);font-family:'DM Sans',sans-serif;font-size:.78rem;cursor:pointer}
+.signout-btn:hover{color:var(--white)}
+
+.tabs{display:flex;gap:4px;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border)}
+.tab{padding:12px 18px;font-size:.85rem;font-weight:600;color:var(--gray);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;font-family:'DM Sans',sans-serif;background:none;border-top:none;border-left:none;border-right:none}
+.tab:hover{color:var(--white)}
+.tab.active{color:var(--sky);border-bottom-color:var(--sky)}
+
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+.main{max-width:960px;margin:0 auto;padding:32px 24px}
+.page-title{font-family:'DM Serif Display',serif;font-size:1.8rem;margin-bottom:6px}
+.page-sub{color:var(--gray);font-size:.85rem;margin-bottom:28px}
+
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.stat-num{font-family:'DM Serif Display',serif;font-size:2rem;color:var(--sky)}
+.stat-lbl{font-size:.75rem;color:var(--gray);margin-top:4px}
+.stat-card.green .stat-num{color:var(--green)}
+.stat-card.amber .stat-num{color:var(--amber)}
+.stat-card.red .stat-num{color:var(--red)}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.card-title{font-weight:600;font-size:.9rem}
+.export-btn{background:var(--blue-dim);border:1px solid var(--blue-border);color:var(--sky);border-radius:var(--radius-sm);padding:5px 12px;font-size:.75rem;font-family:'DM Sans',sans-serif;cursor:pointer}
+.export-btn:hover{opacity:.8}
+
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 16px;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);border-bottom:1px solid var(--border);font-weight:600}
+td{padding:12px 16px;font-size:.82rem;border-bottom:1px solid rgba(255,255,255,.03);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+.empty{text-align:center;padding:40px;color:var(--gray);font-size:.85rem}
+.doors-pill{background:var(--blue-dim);color:var(--sky);border:1px solid var(--blue-border);border-radius:100px;padding:2px 8px;font-size:.7rem;font-weight:600}
+.date-text{color:var(--gray);font-size:.75rem}
+
+.status-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:100px;font-size:.7rem;font-weight:600}
+.status-pill.active{background:var(--green-dim);border:1px solid var(--green-border);color:var(--green)}
+.status-pill.trial{background:var(--blue-dim);border:1px solid var(--blue-border);color:var(--sky)}
+.status-pill.expiring{background:var(--amber-dim);border:1px solid var(--amber-border);color:var(--amber)}
+.status-pill.expired{background:var(--red-dim);border:1px solid var(--red-border);color:var(--red)}
+.pulse{width:6px;height:6px;border-radius:50%;animation:pulse 1.6s ease infinite;display:inline-block}
+.pulse.g{background:var(--green)}.pulse.a{background:var(--amber)}.pulse.r{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.action-btn{padding:4px 10px;border:none;border-radius:6px;font-size:.7rem;cursor:pointer;font-family:inherit;font-weight:600;margin-right:4px}
+.action-btn.blue{background:var(--blue);color:#fff}
+.action-btn.red{background:var(--red-dim);color:var(--red);border:1px solid var(--red-border)}
+.action-btn.amber{background:var(--amber-dim);color:var(--amber);border:1px solid var(--amber-border)}
+
+.search-input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 12px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:.8rem;outline:none;width:200px}
+.search-input:focus{border-color:var(--blue-border)}
+.search-input::placeholder{color:var(--gray)}
+</style>
+</head>
+<body>
+
+
+
+<!-- ADMIN SHELL -->
+<div id="adminShell" style="display:block">
+  <div class="topbar">
+    <div class="logo">Resid<span>ial</span></div>
+    <div style="font-size:.78rem;color:var(--gray);background:var(--surface2);border:1px solid var(--border);border-radius:100px;padding:3px 10px">Admin</div>
+    <div class="topbar-right">
+      <span class="badge" id="trialBadge">0 trials</span>
+      <button class="signout-btn" onclick="signOut()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('signups',this)">📋 Trial Signups</button>
+    <button class="tab" onclick="switchTab('users',this)">👥 Active Users</button>
+    <button class="tab" onclick="switchTab('revenue',this)">📈 Revenue Growth</button>
+    <button class="tab" onclick="switchTab('managers',this)">🏢 Property Managers</button>
+  </div>
+
+  <!-- SIGNUPS TAB -->
+  <div class="tab-content active" id="tab-signups">
+    <div class="main">
+      <div class="page-title">Trial Signups</div>
+      <div class="page-sub">Everyone who signed up for a free trial on residial.net</div>
+      <div class="stats">
+        <div class="stat-card"><div class="stat-num" id="statTotal">0</div><div class="stat-lbl">Total Signups</div></div>
+        <div class="stat-card"><div class="stat-num" id="statToday">0</div><div class="stat-lbl">Signed Up Today</div></div>
+        <div class="stat-card"><div class="stat-num" id="statDoors">0</div><div class="stat-lbl">Total Doors</div></div>
+        <div class="stat-card green"><div class="stat-num" id="statThisWeek">0</div><div class="stat-lbl">This Week</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Trial Users</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="search-input" type="text" placeholder="🔍 Search..." oninput="filterSignups(this.value)">
+            <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Company</th><th>Email</th><th>Phone</th><th>Doors</th><th>State</th><th>Signed Up</th><th>Actions</th></tr></thead>
+          <tbody id="signupTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVE USERS TAB -->
+  <div class="tab-content" id="tab-users">
+    <div class="main">
+      <div class="page-title">Active Users</div>
+      <div class="page-sub">Monitor and manage all users currently on Residial</div>
+      <div class="stats">
+        <div class="stat-card green"><div class="stat-num" id="uStatActive">0</div><div class="stat-lbl">Active Paid</div></div>
+        <div class="stat-card"><div class="stat-num" id="uStatTrial">0</div><div class="stat-lbl">In Trial</div></div>
+        <div class="stat-card amber"><div class="stat-num" id="uStatExpiring">0</div><div class="stat-lbl">Expiring Soon</div></div>
+        <div class="stat-card red"><div class="stat-num" id="uStatExpired">0</div><div class="stat-lbl">Expired</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Users</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input class="search-input" type="text" placeholder="🔍 Search users..." oninput="filterUsers(this.value)">
+            <select id="statusFilter" onchange="filterUsers(document.querySelector('#tab-users .search-input').value)" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:.78rem;outline:none">
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="trial">Trial</option>
+              <option value="expiring">Expiring</option>
+              <option value="expired">Expired</option>
+            </select>
+            <button class="export-btn" onclick="exportUsersCSV()">Export CSV</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Company</th><th>Email</th><th>Doors</th><th>Plan</th><th>Status</th><th>Trial Ends</th><th>Actions</th></tr></thead>
+          <tbody id="usersTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- REVENUE TAB -->
+  <div class="tab-content" id="tab-revenue">
+    <div class="main">
+      <div class="page-title">Revenue Growth</div>
+      <div class="page-sub">MRR, ARR, and growth metrics based on your signups</div>
+      <div class="stats">
+        <div class="stat-card green"><div class="stat-num" id="rStatMRR">$0</div><div class="stat-lbl">Est. MRR</div></div>
+        <div class="stat-card"><div class="stat-num" id="rStatARR">$0</div><div class="stat-lbl">Est. ARR</div></div>
+        <div class="stat-card"><div class="stat-num" id="rStatDoors">0</div><div class="stat-lbl">Total Doors</div></div>
+        <div class="stat-card green"><div class="stat-num" id="rStatGrowth">0%</div><div class="stat-lbl">MoM Growth</div></div>
+      </div>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><div class="card-title">📈 Cumulative MRR Growth</div></div>
+        <div style="padding:20px;height:300px"><canvas id="revenueChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">📊 Monthly New MRR & Signups</div></div>
+        <div style="padding:20px;height:300px"><canvas id="mrrChart"></canvas></div>
+      </div>
+      <div style="font-size:.75rem;color:var(--gray);margin-top:12px;line-height:1.6">* Revenue estimates are based on signup door counts using Residial's pricing tiers. Actual revenue reflects paid subscriptions in Stripe.</div>
+    </div>
+  </div>
+
+  <!-- PROPERTY MANAGERS TAB -->
+  <div class="tab-content" id="tab-managers">
+    <div class="main">
+      <div class="page-title">Property Management Companies</div>
+      <div class="page-sub">Companies, their managers, and assigned locations</div>
+      <div class="stats">
+        <div class="stat-card green"><div class="stat-num" id="pmCoTotal">0</div><div class="stat-lbl">Companies</div></div>
+        <div class="stat-card"><div class="stat-num" id="pmMgrTotal">0</div><div class="stat-lbl">Managers</div></div>
+        <div class="stat-card amber"><div class="stat-num" id="pmLocTotal">0</div><div class="stat-lbl">Locations</div></div>
+        <div class="stat-card"><div class="stat-num" id="pmDoorTotal">0</div><div class="stat-lbl">Total Doors</div></div>
+      </div>
+
+      <!-- Add Company -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><div class="card-title">🏢 Add Management Company</div></div>
+        <div style="padding:16px 20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div>
+            <label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:4px">Company Name *</label>
+            <input class="search-input" id="co-name" placeholder="Maple Grove Property Mgmt" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:4px">Primary Email *</label>
+            <input class="search-input" id="co-email" placeholder="info@maplegrovemgmt.com" type="email" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:4px">Phone</label>
+            <input class="search-input" id="co-phone" placeholder="+18285551234" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:4px">Plan</label>
+            <select id="co-plan" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:.78rem;outline:none;width:100%">
+              <option value="trial">Trial</option>
+              <option value="starter">Starter</option>
+              <option value="pro">Pro</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:4px">State</label>
+            <input class="search-input" id="co-state" placeholder="NC" style="width:100%">
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button onclick="addCompany()" style="background:var(--blue);color:#fff;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:.85rem;font-weight:600;width:100%">Add Company</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Companies List -->
+      <div id="companiesList"></div>
+    </div>
+  </div>
+
+  <!-- ADD MANAGER MODAL -->
+  <div id="mgrOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:420px;max-width:95vw;position:relative">
+      <div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">👤 Add Property Manager</div>
+      <input type="hidden" id="mgr-co-id">
+      <div style="display:grid;gap:10px">
+        <div><label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:3px">Manager Name *</label><input class="search-input" id="mgr-name" placeholder="Sarah Johnson" style="width:100%"></div>
+        <div><label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:3px">Email *</label><input class="search-input" id="mgr-email" placeholder="sarah@company.com" style="width:100%"></div>
+        <div><label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:3px">Phone</label><input class="search-input" id="mgr-phone" placeholder="+18285551234" style="width:100%"></div>
+        <div><label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:3px">Title</label><input class="search-input" id="mgr-title" placeholder="Senior Property Manager" style="width:100%"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button onclick="closeMgrModal()" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--white);padding:9px;border-radius:6px;cursor:pointer">Cancel</button>
+        <button onclick="saveManager()" style="flex:1;background:var(--blue);border:none;color:#fff;padding:9px;border-radius:6px;cursor:pointer;font-weight:600">Add Manager</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD LOCATION MODAL -->
+  <div id="locOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;width:420px;max-width:95vw;position:relative">
+      <div style="font-size:1.1rem;font-weight:700;margin-bottom:16px">📍 Add Location</div>
+      <input type="hidden" id="loc-mgr-id">
+      <input type="hidden" id="loc-co-id">
+      <div style="display:grid;gap:10px">
+        <div><label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:3px">Property Name *</label><input class="search-input" id="loc-name" placeholder="Maple Grove Apts" style="width:100%"></div>
+        <div><label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:3px">Address</label><input class="search-input" id="loc-address" placeholder="123 Main St, Boone NC" style="width:100%"></div>
+        <div><label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:3px">Number of Units/Doors</label><input class="search-input" id="loc-doors" placeholder="24" type="number" style="width:100%"></div>
+        <div><label style="font-size:.73rem;color:var(--gray);display:block;margin-bottom:3px">Type</label>
+          <select id="loc-type" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;color:var(--white);font-family:'DM Sans',sans-serif;font-size:.78rem;outline:none;width:100%">
+            <option value="apartment">Apartment Complex</option>
+            <option value="condo">Condo Building</option>
+            <option value="sfr">Single Family Homes</option>
+            <option value="commercial">Commercial</option>
+            <option value="mixed">Mixed Use</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button onclick="closeLocModal()" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--white);padding:9px;border-radius:6px;cursor:pointer">Cancel</button>
+        <button onclick="saveLocation()" style="flex:1;background:var(--green);border:none;color:#fff;padding:9px;border-radius:6px;cursor:pointer;font-weight:600">Add Location</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+const PASS = '123456';
+let allSignups = [];
+let allUsers = [];
+
+function checkPass(){
+  if(document.getElementById('loginPass').value === PASS){
+    sessionStorage.setItem('residial_admin','1');
+    showAdmin();
+  } else {
+    document.getElementById('loginErr').style.display='block';
+  }
+}
+
+function showAdmin(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('adminShell').style.display='block';
+  loadSignups();
+}
+
+function signOut(){
+  sessionStorage.removeItem('residial_admin');
+  location.reload();
+}
+
+function switchTab(tab, el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='users') loadUsers();
+  if(tab==='revenue') loadRevenue();
+  if(tab==='managers') loadManagers();
+}
+
+// ── SIGNUPS ──
+function loadSignups(){
+  fetch('https://residial-server.onrender.com/api/signups',{headers:{'x-admin-key':'residial-admin-2026'}})
+  .then(r=>r.json()).then(s=>{allSignups=s;renderSignups(s);}).catch(()=>renderSignups([]));
+}
+
+function renderSignups(signups){
+  const tbody=document.getElementById('signupTbody');
+  const today=new Date().toDateString();
+  const weekAgo=new Date(Date.now()-7*24*60*60*1000);
+  let todayCount=0,totalDoors=0,weekCount=0;
+  document.getElementById('statTotal').textContent=signups.length;
+  document.getElementById('trialBadge').textContent=signups.length+' trial'+(signups.length!==1?'s':'');
+  if(!signups.length){
+    tbody.innerHTML=`<tr><td colspan="9" class="empty">No signups yet. Share residial.net to get started!</td></tr>`;
+    ['statToday','statDoors','statThisWeek'].forEach(id=>document.getElementById(id).textContent=0);
+    return;
+  }
+  tbody.innerHTML=signups.map((s,i)=>{
+    const date=s.createdAt?new Date(s.createdAt):new Date();
+    if(date.toDateString()===today) todayCount++;
+    if(date>=weekAgo) weekCount++;
+    const m=(s.doors||'').match(/(\d+)/);
+    if(m) totalDoors+=parseInt(m[1]);
+    return `<tr>
+      <td style="color:var(--gray)">${i+1}</td>
+      <td><strong>${s.fname||''} ${s.lname||''}</strong></td>
+      <td>${s.company||'—'}</td>
+      <td style="font-size:.75rem">${s.email||'—'}</td>
+      <td style="font-family:monospace;font-size:.75rem">${s.phone||'—'}</td>
+      <td><span class="doors-pill">${s.doors||'—'}</span></td>
+      <td>${s.state||'—'}</td>
+      <td class="date-text">${date.toLocaleDateString()}</td>
+      <td><button class="action-btn blue" onclick="resendWelcome('${s.email||''}')">📧 Resend</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('statToday').textContent=todayCount;
+  document.getElementById('statDoors').textContent=totalDoors+'+';
+  document.getElementById('statThisWeek').textContent=weekCount;
+}
+
+function filterSignups(q){
+  const lq=q.toLowerCase();
+  renderSignups(lq?allSignups.filter(s=>(s.fname+' '+s.lname+s.company+s.email+s.state).toLowerCase().includes(lq)):allSignups);
+}
+
+function resendWelcome(email){
+  if(!email){alert('No email');return;}
+  if(!confirm('Resend welcome email to '+email+'?')) return;
+  fetch('https://residial-server.onrender.com/api/resend-welcome',{
+    method:'POST',headers:{'Content-Type':'application/json','x-admin-key':'residial-admin-2026'},
+    body:JSON.stringify({email})
+  }).then(r=>r.json()).then(d=>{
+    if(d.success) alert('✅ Sent to '+email);
+    else alert('Error: '+(d.error||'Unknown'));
+  }).catch(()=>alert('Connection error'));
+}
+
+function exportCSV(){
+  if(!allSignups.length){alert('No signups to export.');return;}
+  const rows=[['First Name','Last Name','Company','Email','Phone','Doors','State','Signed Up'],
+    ...allSignups.map(s=>[s.fname,s.lname,s.company,s.email,s.phone,s.doors,s.state,s.createdAt||s.created])];
+  const csv=rows.map(r=>r.map(c=>`"${c||''}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='residial-signups.csv';a.click();
+}
+
+// ── ACTIVE USERS ──
+function loadUsers(){
+  fetch('https://residial-server.onrender.com/api/signups',{headers:{'x-admin-key':'residial-admin-2026'}})
+  .then(r=>r.json()).then(signups=>{
+    const now=new Date();
+    allUsers=signups.map(s=>{
+      const created=s.createdAt?new Date(s.createdAt):new Date();
+      const trialEnd=new Date(created.getTime()+14*24*60*60*1000);
+      const daysLeft=Math.ceil((trialEnd-now)/(1000*60*60*24));
+      let status='trial';
+      if(s.subscribed||s.stripeCustomer) status='active';
+      else if(daysLeft<=0) status='expired';
+      else if(daysLeft<=3) status='expiring';
+      return{...s,trialEnd,daysLeft,status};
+    });
+    renderUsers(allUsers);
+  }).catch(()=>renderUsers([]));
+}
+
+function renderUsers(users){
+  const tbody=document.getElementById('usersTbody');
+  const counts={active:0,trial:0,expiring:0,expired:0};
+  users.forEach(u=>counts[u.status]=(counts[u.status]||0)+1);
+  document.getElementById('uStatActive').textContent=counts.active||0;
+  document.getElementById('uStatTrial').textContent=counts.trial||0;
+  document.getElementById('uStatExpiring').textContent=counts.expiring||0;
+  document.getElementById('uStatExpired').textContent=counts.expired||0;
+
+  if(!users.length){tbody.innerHTML=`<tr><td colspan="9" class="empty">No users yet.</td></tr>`;return;}
+
+  const statusLabel={
+    active:`<span class="status-pill active"><span class="pulse g"></span>Active</span>`,
+    trial:`<span class="status-pill trial"><span class="pulse g"></span>Trial</span>`,
+    expiring:`<span class="status-pill expiring"><span class="pulse a"></span>Expiring</span>`,
+    expired:`<span class="status-pill expired"><span class="pulse r"></span>Expired</span>`,
+  };
+
+  const planName=doors=>{
+    const d=parseInt((doors||'').match(/(\d+)/)?.[1]||0);
+    if(d<=50) return 'Starter';if(d<=500) return 'Pro';return 'Enterprise';
+  };
+
+  tbody.innerHTML=users.map((u,i)=>{
+    const trialEndStr=u.trialEnd?u.trialEnd.toLocaleDateString():'—';
+    const daysStr=u.status==='expired'?'<span style="color:var(--red)">Expired</span>':u.status==='active'?'<span style="color:var(--green)">Paid</span>':`<span style="color:${u.daysLeft<=3?'var(--amber)':'var(--gray)'}">${u.daysLeft}d left</span>`;
+    return `<tr>
+      <td style="color:var(--gray)">${i+1}</td>
+      <td><strong>${u.fname||''} ${u.lname||''}</strong></td>
+      <td>${u.company||'—'}</td>
+      <td style="font-size:.75rem">${u.email||'—'}</td>
+      <td><span class="doors-pill">${u.doors||'—'}</span></td>
+      <td style="color:var(--gray);font-size:.78rem">${planName(u.doors)}</td>
+      <td>${statusLabel[u.status]||''}</td>
+      <td class="date-text">${trialEndStr}<br>${daysStr}</td>
+      <td>
+        <button class="action-btn blue" onclick="resendWelcome('${u.email||''}')">📧 Email</button>
+        <button class="action-btn amber" onclick="extendTrial('${u.email||''}')">+7 Days</button>
+        ${u.status==='expired'?`<button class="action-btn red" onclick="suspendUser('${u.email||''}')">🚫 Suspend</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterUsers(q){
+  const lq=q.toLowerCase();
+  const sv=document.getElementById('statusFilter').value;
+  let f=allUsers;
+  if(lq) f=f.filter(u=>(u.fname+' '+u.lname+u.company+u.email).toLowerCase().includes(lq));
+  if(sv) f=f.filter(u=>u.status===sv);
+  renderUsers(f);
+}
+
+function extendTrial(email){
+  if(!email) return;
+  if(!confirm('Extend trial by 7 days for '+email+'?')) return;
+  fetch('https://residial-server.onrender.com/api/extend-trial',{
+    method:'POST',headers:{'Content-Type':'application/json','x-admin-key':'residial-admin-2026'},
+    body:JSON.stringify({email,days:7})
+  }).then(r=>r.json()).then(d=>{
+    if(d.success){alert('✅ Trial extended for '+email);loadUsers();}
+    else alert('Error: '+(d.error||'Unknown'));
+  }).catch(()=>alert('Connection error'));
+}
+
+function suspendUser(email){
+  if(!email) return;
+  if(!confirm('Suspend account for '+email+'?')) return;
+  alert('Suspend feature coming soon. Contact user manually: '+email);
+}
+
+function exportUsersCSV(){
+  if(!allUsers.length){alert('No users to export.');return;}
+  const rows=[['Name','Company','Email','Doors','Plan','Status','Trial End','Days Left'],
+    ...allUsers.map(u=>[u.fname+' '+u.lname,u.company,u.email,u.doors,u.status,u.trialEnd?.toLocaleDateString(),u.daysLeft])];
+  const csv=rows.map(r=>r.map(c=>`"${c||''}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='residial-users.csv';a.click();
+}
+
+// ── REVENUE ──
+let revenueChart = null;
+let mrr_chart = null;
+
+function loadRevenue(){
+  fetch('https://residial-server.onrender.com/api/signups',{headers:{'x-admin-key':'residial-admin-2026'}})
+  .then(r=>r.json()).then(signups=>{
+    buildRevenueData(signups);
+  }).catch(()=>buildRevenueData([]));
+}
+
+function buildRevenueData(signups){
+  const now = new Date();
+  // Build monthly signup data for last 12 months
+  const months = [];
+  for(let i=11;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push({
+      label: d.toLocaleString('default',{month:'short', year:'2-digit'}),
+      year: d.getFullYear(),
+      month: d.getMonth(),
+      signups: 0,
+      mrr: 0,
+      doors: 0
+    });
+  }
+
+  signups.forEach(s=>{
+    const created = s.createdAt ? new Date(s.createdAt) : null;
+    if(!created) return;
+    const m = months.find(mo=>mo.year===created.getFullYear()&&mo.month===created.getMonth());
+    if(!m) return;
+    m.signups++;
+    const doors = parseInt((s.doors||'').match(/(\d+)/)?.[1]||0);
+    m.doors += doors;
+    // Estimate MRR based on doors
+    const price = doors<=50 ? 49 : doors<=500 ? doors*1.75 : doors*1.50;
+    m.mrr += price;
+  });
+
+  // Cumulative MRR
+  let cumMRR = 0;
+  const cumulativeMRR = months.map(m=>{ cumMRR+=m.mrr; return Math.round(cumMRR); });
+
+  // Stats
+  const totalMRR = Math.round(cumMRR);
+  const arr = totalMRR * 12;
+  const totalDoors = months.reduce((a,m)=>a+m.doors,0);
+  const thisMonth = months[months.length-1];
+  const lastMonth = months[months.length-2];
+  const growth = lastMonth.mrr > 0 ? Math.round(((thisMonth.mrr - lastMonth.mrr)/lastMonth.mrr)*100) : 0;
+
+  document.getElementById('rStatMRR').textContent = '$'+totalMRR.toLocaleString();
+  document.getElementById('rStatARR').textContent = '$'+arr.toLocaleString();
+  document.getElementById('rStatDoors').textContent = totalDoors.toLocaleString();
+  document.getElementById('rStatGrowth').textContent = (growth>=0?'+':'')+growth+'%';
+  document.getElementById('rStatGrowth').style.color = growth>=0 ? 'var(--green)' : 'var(--red)';
+
+  renderRevenueChart(months, cumulativeMRR);
+  renderMRRChart(months);
+}
+
+function renderRevenueChart(months, cumulativeMRR){
+  const ctx = document.getElementById('revenueChart').getContext('2d');
+  if(revenueChart) revenueChart.destroy();
+  revenueChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: months.map(m=>m.label),
+      datasets: [{
+        label: 'Cumulative MRR ($)',
+        data: cumulativeMRR,
+        borderColor: '#1a6fff',
+        backgroundColor: 'rgba(26,111,255,0.1)',
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#1a6fff',
+        pointRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#6b85a3', font: { family: 'DM Sans' } } } },
+      scales: {
+        x: { ticks: { color: '#6b85a3' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: '#6b85a3', callback: v=>'$'+v.toLocaleString() }, grid: { color: 'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+}
+
+function renderMRRChart(months){
+  const ctx = document.getElementById('mrrChart').getContext('2d');
+  if(mrr_chart) mrr_chart.destroy();
+  mrr_chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: months.map(m=>m.label),
+      datasets: [
+        {
+          label: 'New MRR ($)',
+          data: months.map(m=>Math.round(m.mrr)),
+          backgroundColor: 'rgba(39,201,122,0.7)',
+          borderColor: '#27c97a',
+          borderWidth: 1,
+          borderRadius: 4,
+        },
+        {
+          label: 'New Signups',
+          data: months.map(m=>m.signups),
+          backgroundColor: 'rgba(77,146,255,0.5)',
+          borderColor: '#4d92ff',
+          borderWidth: 1,
+          borderRadius: 4,
+          yAxisID: 'y2'
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#6b85a3', font: { family: 'DM Sans' } } } },
+      scales: {
+        x: { ticks: { color: '#6b85a3' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: '#6b85a3', callback: v=>'$'+v.toLocaleString() }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y2: { position: 'right', ticks: { color: '#4d92ff' }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+window.addEventListener('DOMContentLoaded',function(){
+  loadSignups();
+  loadManagers();
+});
+
+// ── COMPANIES / MANAGERS / LOCATIONS ──
+let pmData = JSON.parse(localStorage.getItem('residial_pm_data') || '[]');
+// structure: [{id, name, email, phone, plan, state, added, managers:[{id,name,email,phone,title,locations:[{id,name,address,doors,type}]}]}]
+
+function savePM(){ localStorage.setItem('residial_pm_data', JSON.stringify(pmData)); }
+
+function updatePMStats(){
+  const mgrs = pmData.flatMap(c=>c.managers||[]);
+  const locs = mgrs.flatMap(m=>m.locations||[]);
+  const doors = locs.reduce((s,l)=>s+(parseInt(l.doors)||0),0);
+  document.getElementById('pmCoTotal').textContent = pmData.length;
+  document.getElementById('pmMgrTotal').textContent = mgrs.length;
+  document.getElementById('pmLocTotal').textContent = locs.length;
+  document.getElementById('pmDoorTotal').textContent = doors;
+}
+
+const planColor = {trial:'#f59e0b',starter:'#3b82f6',pro:'#8b5cf6',enterprise:'#10b981'};
+const locTypeLabel = {apartment:'Apartment',condo:'Condo',sfr:'Single Family',commercial:'Commercial',mixed:'Mixed Use'};
+
+function renderCompanies(){
+  updatePMStats();
+  const el = document.getElementById('companiesList');
+  if(!pmData.length){
+    el.innerHTML=`<div style="text-align:center;padding:50px;color:var(--gray)">No companies yet. Add one above.</div>`;
+    return;
+  }
+  el.innerHTML = pmData.map(co=>`
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header" style="flex-wrap:wrap;gap:8px">
+        <div>
+          <div class="card-title" style="display:flex;align-items:center;gap:8px">
+            🏢 ${co.name}
+            <span style="background:${planColor[co.plan]||'#6b7280'}22;color:${planColor[co.plan]||'#6b7280'};padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:700;text-transform:uppercase">${co.plan}</span>
+          </div>
+          <div style="font-size:.78rem;color:var(--gray);margin-top:2px">${co.email}${co.phone?' · '+co.phone:''}${co.state?' · '+co.state:''}</div>
+        </div>
+        <div style="display:flex;gap:6px;margin-left:auto">
+          <button onclick="openMgrModal('${co.id}')" style="background:var(--blue-dim);border:1px solid var(--blue-border);color:var(--sky);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.78rem;font-weight:600">+ Manager</button>
+          <button onclick="deleteCompany('${co.id}')" style="background:#ff374411;border:1px solid #ff374433;color:#ff3744;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:.78rem">🗑</button>
+        </div>
+      </div>
+
+      ${(co.managers||[]).length===0
+        ? `<div style="padding:14px 20px;color:var(--gray);font-size:.82rem;font-style:italic">No managers assigned yet.</div>`
+        : (co.managers||[]).map(mgr=>`
+          <div style="border-top:1px solid var(--border);padding:12px 20px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div style="flex:1">
+                <div style="font-weight:600;font-size:.88rem">👤 ${mgr.name}${mgr.title?' <span style="font-weight:400;color:var(--gray);font-size:.78rem">· '+mgr.title+'</span>':''}</div>
+                <div style="font-size:.76rem;color:var(--gray);margin-top:1px">${mgr.email}${mgr.phone?' · '+mgr.phone:''}</div>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button onclick="openLocModal('${co.id}','${mgr.id}')" style="background:var(--green-dim);border:1px solid var(--green-border);color:var(--green);padding:4px 10px;border-radius:5px;cursor:pointer;font-size:.75rem;font-weight:600">+ Location</button>
+                <button onclick="deleteManager('${co.id}','${mgr.id}')" style="background:#ff374411;border:1px solid #ff374433;color:#ff3744;padding:4px 8px;border-radius:5px;cursor:pointer;font-size:.75rem">🗑</button>
+              </div>
+            </div>
+
+            ${(mgr.locations||[]).length===0
+              ? `<div style="margin-top:8px;font-size:.76rem;color:var(--gray);font-style:italic">No locations assigned.</div>`
+              : `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">
+                  ${(mgr.locations||[]).map(loc=>`
+                    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:.78rem;display:flex;align-items:center;gap:10px">
+                      <div>
+                        <div style="font-weight:600">📍 ${loc.name}</div>
+                        <div style="color:var(--gray);font-size:.72rem">${loc.address||'No address'} · ${loc.doors||'?'} doors · ${locTypeLabel[loc.type]||loc.type}</div>
+                      </div>
+                      <button onclick="deleteLocation('${co.id}','${mgr.id}','${loc.id}')" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:.85rem">✕</button>
+                    </div>`).join('')}
+                </div>`
+            }
+          </div>`).join('')
+      }
+    </div>`).join('');
+}
+
+function loadManagers(){ renderCompanies(); }
+
+function addCompany(){
+  const name=document.getElementById('co-name').value.trim();
+  const email=document.getElementById('co-email').value.trim();
+  const phone=document.getElementById('co-phone').value.trim();
+  const plan=document.getElementById('co-plan').value;
+  const state=document.getElementById('co-state').value.trim();
+  if(!name||!email){ alert('Company name and email required.'); return; }
+  pmData.push({id:Date.now().toString(),name,email,phone,plan,state,added:new Date().toISOString(),managers:[]});
+  savePM(); renderCompanies();
+  ['co-name','co-email','co-phone','co-state'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('co-plan').value='trial';
+}
+
+function deleteCompany(id){
+  if(!confirm('Delete this company and all its managers/locations?')) return;
+  pmData=pmData.filter(c=>c.id!==id); savePM(); renderCompanies();
+}
+
+// Manager modal
+function openMgrModal(coId){
+  document.getElementById('mgr-co-id').value=coId;
+  ['mgr-name','mgr-email','mgr-phone','mgr-title'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('mgrOverlay').style.display='flex';
+}
+function closeMgrModal(){ document.getElementById('mgrOverlay').style.display='none'; }
+function saveManager(){
+  const coId=document.getElementById('mgr-co-id').value;
+  const name=document.getElementById('mgr-name').value.trim();
+  const email=document.getElementById('mgr-email').value.trim();
+  const phone=document.getElementById('mgr-phone').value.trim();
+  const title=document.getElementById('mgr-title').value.trim();
+  if(!name||!email){ alert('Name and email required.'); return; }
+  const co=pmData.find(c=>c.id===coId);
+  if(!co) return;
+  co.managers.push({id:Date.now().toString(),name,email,phone,title,locations:[]});
+  savePM(); renderCompanies(); closeMgrModal();
+}
+function deleteManager(coId,mgrId){
+  if(!confirm('Remove this manager?')) return;
+  const co=pmData.find(c=>c.id===coId); if(!co) return;
+  co.managers=co.managers.filter(m=>m.id!==mgrId); savePM(); renderCompanies();
+}
+
+// Location modal
+function openLocModal(coId,mgrId){
+  document.getElementById('loc-co-id').value=coId;
+  document.getElementById('loc-mgr-id').value=mgrId;
+  ['loc-name','loc-address','loc-doors'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('loc-type').value='apartment';
+  document.getElementById('locOverlay').style.display='flex';
+}
+function closeLocModal(){ document.getElementById('locOverlay').style.display='none'; }
+function saveLocation(){
+  const coId=document.getElementById('loc-co-id').value;
+  const mgrId=document.getElementById('loc-mgr-id').value;
+  const name=document.getElementById('loc-name').value.trim();
+  const address=document.getElementById('loc-address').value.trim();
+  const doors=document.getElementById('loc-doors').value.trim();
+  const type=document.getElementById('loc-type').value;
+  if(!name){ alert('Property name required.'); return; }
+  const co=pmData.find(c=>c.id===coId); if(!co) return;
+  const mgr=co.managers.find(m=>m.id===mgrId); if(!mgr) return;
+  mgr.locations.push({id:Date.now().toString(),name,address,doors,type});
+  savePM(); renderCompanies(); closeLocModal();
+}
+function deleteLocation(coId,mgrId,locId){
+  const co=pmData.find(c=>c.id===coId); if(!co) return;
+  const mgr=co.managers.find(m=>m.id===mgrId); if(!mgr) return;
+  mgr.locations=mgr.locations.filter(l=>l.id!==locId); savePM(); renderCompanies();
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+</body>
+</html>
